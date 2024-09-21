@@ -3,9 +3,11 @@ Analysis code for weather station data
 
 This code has been used to produce the paper "Detailed Analysis of Local Climate at the CTAO-North Site from 20 Years of MAGIC Weather Station Data" 
 
-Download the data on:  
+1. Download the data from:  https://dx.doi.org/10.5281/zenodo.11279074 
 
-Edit the __main__ part of the script WS.py to uncomment different parts of the analysis 
+2. Edit and run the python script create_files.py
+
+3. Edit the __main__ part of the script WS.py to uncomment different parts of the analysis 
 
   #plot_datacount()
   #plot_downtime()
