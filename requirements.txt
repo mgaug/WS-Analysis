@@ -4,19 +4,13 @@ scipy
 astropy
 astroplan
 windrose
-re
 numpy
 pandas
 cycler
 seaborn
-functools
-itertools
 prettytable
 datetime
-multiprocessing
 statsmodels
-json
-timeit
 
 # Debugging
 pytest
