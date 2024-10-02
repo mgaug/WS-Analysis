@@ -3,6 +3,7 @@ COPY . /ws
 
 WORKDIR /ws
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt \
+    pip install -r requirements.txt 
 
-CMD tail -f /dev/null
+CMD ["python","run.py"]
+#RUN tail -f /dev/null
