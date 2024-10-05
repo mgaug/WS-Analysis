@@ -856,7 +856,6 @@ def plot_temperature_not() -> None:
 
     #plt.rcParams.update(params)
 
-    df_not = pd.read_hdf(not_file)
     df_not = df_not[df_not['Tgradient1']<3]
     print (df_not.head())
 
@@ -1362,8 +1361,6 @@ def plot_humidity() -> None:
     is_coauthor_tests = True
 
     if is_not:
-        df_not = pd.read_hdf(not_file)
-
         plt.figure()
         #not_correlate(df_not['Humidity'],dff['humidity'],color='r')
         not_profile(df_not['Humidity'].resample('D').median(),dff[name_humidity].resample('D').median(),nbins=25)    
@@ -1814,7 +1811,6 @@ def plot_humidity_not() -> None:
 
     #plt.rcParams.update(params)
 
-    df_not = pd.read_hdf(not_file)
     df_not = df_not[df_not['Tgradient1']<3]
     print (df_not.head())
 
@@ -2160,8 +2156,6 @@ def plot_humidity_not() -> None:
     name_humidity    = name_humidity_save 
     
 def plot_pressure_not() -> None:
-
-    df_not = pd.read_hdf(not_file)
 
     name_pressure_save = name_pressure
     name_pressure = 'PressureHPA'
@@ -3923,21 +3917,28 @@ def plot_rainy_periods() -> None:
     ax.xaxis.set_tick_params(labelsize=26)
     plt.savefig('{:s}/p0s_weights_rains{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
-            
 
-if __name__ == '__main__':
-    SetUp()
-
-    df_naoi = naoi_read(naoi_file,WS_start)
+def load_data() -> None: 
     
+    if is_naoi:
+        df_naoi = naoi_read(naoi_file,WS_start)    
+
+    if is_not:
+        df_not = pd.read_hdf(not_file)
+
     dff = pd.read_hdf(h5file_long)
         
     print('DUPLICATES: ',dff[dff['is_dup'] == True].head(n=100))
     print('LOW HUMIDITY: ',dff[dff['humidity']<0.1])
     print('MJD not valid: ',dff[dff['mjd'].isnull()])
     #dff = dff[dff['is_dup']==False]
+        
+if __name__ == '__main__':
+    SetUp()
+
+    load_data()
     
-    fig = plt.figure(figsize = (10,5), constrained_layout = True)
+    #fig = plt.figure(figsize = (10,5), constrained_layout = True)
 
     #plot_datacount()
     #plot_downtime()
@@ -3951,6 +3952,6 @@ if __name__ == '__main__':
     #plot_humidity_not()
     #plot_pressure_not()
     #plot_pressure()    
-    plot_wind()
+    #plot_wind()
     #plot_huracans()
 
