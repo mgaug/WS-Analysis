@@ -40,6 +40,15 @@ jupyter: ##
 	$(APP_TAG) \
 	jupyter notebook --ip 0.0.0.0 --port $(PORT) --no-browser --allow-root 
 
-prune: ##
-	docker image prune
-	docker container prune
+clean: ##
+	docker image prune -f
+	docker container prune -f
+	docker network prune -f
+	docker volume prune -f
+	docker ps -a
+
+distclean: ##
+	docker image prune -a
+	docker container prune -f
+	docker system prune --all
+
