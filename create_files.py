@@ -24,23 +24,20 @@ from wind_helper import calc_ti, winddiraverage
 from coverage_helper import expected_data_per_day, apply_coverage
 
 jsonfile = 'WS2003-23.json'
-#jsonfile = 'WS_detailed.json'
-h5file_short = 'WS2003-23_short_withstate.h5'
-#h5file_short = 'WS_detailed.h5'
+h5file_short = 'WS2003-23_short.h5'
 h5file_long  = 'WS2003-23_long.h5'
-#h5file_long  = 'WS_detailed_long.h5'
 h5file_corr  = 'WS2003-23_corr.h5'
 # from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
 naoi_file = 'norm.daily.nao.cdas.z500.19500101_current.csv'
-not_file = 'NOT_2003_2023.csv'
-h5file_not = 'NOT_2003_2023.h5'
+#not_file = 'NOT_2003_2023.csv'
+#h5file_not = 'NOT_2003_2023.h5'
 
-is_json  = True
+is_json  = False
 invertcuts = False
 # This option is needed once to create the long file,
 # Beware, it is very slow and may take several hours,
 # because of the slow astropy sun coordinates calculator
-create_long = False
+create_long = True
 create_corr = False
 create_not = False
 
@@ -50,8 +47,6 @@ new_WS        = '2007-03-20 00:00:01'
 new_model     = '2017-04-10 00:00:01'
 old_model     = '2023-01-16 00:00:01'
 NOT_end_of_data = '2019-12-31 23:59:59'
-#RH_drift_start  = '2020-01-01 00:00'
-#RH_drift_end    = '2023-01-16 14:00'
 
 pd.set_option('display.max_columns', 8)
 pd.set_option('display.max_rows', 500)
