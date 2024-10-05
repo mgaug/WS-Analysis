@@ -23,10 +23,10 @@ from naoi_helper import *
 from wind_helper import calc_ti, winddiraverage
 from coverage_helper import expected_data_per_day, apply_coverage
 
-jsonfile = 'WS2003-23.json'
-h5file_short = 'WS2003-23_short.h5'
-h5file_long  = 'WS2003-23_long.h5'
-h5file_corr  = 'WS2003-23_corr.h5'
+jsonfile     = 'Data/WS2003-23.json'
+h5file_short = 'Data/WS2003-23_short.h5'
+h5file_long  = 'Data/WS2003-23_long.h5'
+h5file_corr  = 'Data/WS2003-23_corr.h5'
 # from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
 naoi_file = 'norm.daily.nao.cdas.z500.19500101_current.csv'
 #not_file = 'NOT_2003_2023.csv'
