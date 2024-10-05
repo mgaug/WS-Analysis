@@ -37,7 +37,7 @@ def SetUp():
     colors = list(plt.cm.tab10(range(10)))
     colors.append(tuple(mcolors.hex2color(mcolors.cnames["crimson"])))
     colors.append(tuple(mcolors.hex2color(mcolors.cnames["indigo"])))
-    print (colors)
+    #print (colors)
     default_cycler = (cycler(color=colors)) + cycler(linestyle=['-', '--', ':', '-.',
                                                                 '-', '--', ':', '-.',
                                                                 '-', '--', ':', '-.'])
