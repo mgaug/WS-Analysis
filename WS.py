@@ -1360,7 +1360,7 @@ def plot_humidity() -> None:
     is_offset = False
     is_coauthor_tests = True
 
-    if is_not:
+    if is_NOT:
         plt.figure()
         #not_correlate(df_not['Humidity'],dff['humidity'],color='r')
         not_profile(df_not['Humidity'].resample('D').median(),dff[name_humidity].resample('D').median(),nbins=25)    
@@ -3923,7 +3923,7 @@ def load_data() -> None:
     if is_naoi:
         df_naoi = naoi_read(naoi_file,WS_start)    
 
-    if is_not:
+    if is_NOT:
         df_not = pd.read_hdf(not_file)
 
     dff = pd.read_hdf(h5file_long)
