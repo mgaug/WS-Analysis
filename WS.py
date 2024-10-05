@@ -32,12 +32,15 @@ from precipitation_helper import *
 from wind_helper import *
 from diurnal_helper import *
 
-h5file_long  = 'WS2003-23_long.h5'
+resultdir = 'Results'
+
+h5file_long  = 'WS2003-24_long.h5'
 # from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
 naoi_file = 'norm.daily.nao.cdas.z500.19500101_current.csv'
 not_file = 'NOT_2003_2023.h5'
 
-is_20to22 = True
+is_naoi = False
+is_NOT  = False
 
 # Names of variables provided by WS
 name_temperature = 'temperature'
@@ -109,8 +112,17 @@ def plot_downtime() -> None:
 
     dfff, coverage = apply_coverage(dfff,debug=False)
 
-    cuts_dict = { 'humidity' : [ '<', 90, '%' ],
-                  'windSpeedAverage' : [ '<', 36, 'km/h' ] }
+    cuts_dict = { name_humidity : [ '<', 90, '%' ],
+                  name_ws_average : [ '<', 36, 'km/h' ] }
+    
+    plt.figure(figsize = (10,5), constrained_layout = True)
+    print ('entering in downtime calculation', flush=True)
+    plot_mensual_downtime(dfff,cuts_dict, coverage_cut=80)
+    plt.savefig('{:s}/Downtime_mensual{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
+    plt.show()
+
+    cuts_dict = { name_humidity : [ '<', 90, '%' ],
+                  name_ws_average : [ '<', 36, 'km/h' ] }
     #'windGust' : [ '<', 40, 'km/h'] }
 
     cmap = plt.get_cmap("tab10")
@@ -121,16 +133,9 @@ def plot_downtime() -> None:
     plt.xlabel('Maximum wind gust (km/h)', fontsize=26)
     plt.ylabel('Mean downtime (%)',fontsize=26)
     plt.legend(loc='best')
-    plt.savefig('Downtime_windgust.pdf',bbox_inches='tight')
+    plt.savefig('{:s}/Downtime_windgust{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
     plt.show()
     
-    cuts_dict = { 'humidity' : [ '<', 90, '%' ],
-                  'windSpeedAverage' : [ '<', 36, 'km/h' ] }
-    
-    plt.figure(figsize = (10,5), constrained_layout = True)
-    plot_mensual_downtime(dfff,cuts_dict, coverage_cut=80)
-    plt.savefig('Downtime_mensual.pdf',bbox_inches='tight')
-    plt.show()
     
 def plot_temperature_gradient() -> None:
 
@@ -139,9 +144,9 @@ def plot_temperature_gradient() -> None:
     dfff, coverage = apply_coverage(dfff,debug=False)
 
     mask = (dfff['Tgradient10R']>0.32)
-    print ('Strong Tgradients: ', dfff.loc[mask,'temperature'])
+    print ('Strong Tgradients: ', dfff.loc[mask,name_temperature])
     mask = (dfff['Tgradient10R']<-0.4)
-    print ('Negative Tgradients: ', dfff.loc[mask,'temperature'])
+    print ('Negative Tgradients: ', dfff.loc[mask,name_temperature])
 
     dfff_p = dff[dff['pressure_reliable']==True]
     
@@ -149,33 +154,33 @@ def plot_temperature_gradient() -> None:
     h,p = plot_profile(dfff['pressure'],dfff['Tgradient5R'],nbins=50)
     plt.xlabel('Pressure (mbar)')
     plt.ylabel('Temperature change rate (ºC/min)',fontsize=22)
-    plt.savefig('Tgradient5R_corr_pressure.pdf')
+    plt.savefig('{:s}/Tgradient5R_corr_pressure{:s}.pdf'.format(resultdir,tits))
 
     num = 20
     grad_thr = 0.5
 
-    print ('TGRADIENT1 TE: ',dfff.loc[ dfff['Tgradient5R'] > grad_thr, 'temperature'].head(n=num))
+    print ('TGRADIENT1 TE: ',dfff.loc[ dfff['Tgradient5R'] > grad_thr, name_temperature].head(n=num))
  
     grad_thr = -0.5
 
-    print ('TGRADIENT5 TE: ',dfff.loc[ dfff['Tgradient1R'] < grad_thr, 'temperature'].head(n=num))
-    print ('TGRADIENT5 PR: ',dfff.loc[ dfff['Tgradient1R'] < grad_thr, 'pressure'].head(n=num))
+    print ('TGRADIENT5 TE: ',dfff.loc[ dfff['Tgradient1R'] < grad_thr, name_temperature].head(n=num))
+    print ('TGRADIENT5 PR: ',dfff.loc[ dfff['Tgradient1R'] < grad_thr, name_pressure].head(n=num))
     
     mask_r = (dfff['humidity_reliable']==True) # & (Filtre_Humidity(dfff,False)))
     dfff_r = dfff[mask_r]
     mask = (dfff_r['Rgradient10R']<-4.0)
-    print ('Negative Rgradients: ', dfff_r.loc[mask,'humidity'])
+    print ('Negative Rgradients: ', dfff_r.loc[mask,name_humidity])
     mask = (dfff_r['Tgradient10R']<-0.4)    
-    print ('Negative Tgradients: ', dfff_r.loc[mask,'temperature'])    
+    print ('Negative Tgradients: ', dfff_r.loc[mask,name_temperature])    
     mask = (dfff_r['Tgradient10R']>0.33)    
-    print ('Positive Tgradients: ', dfff_r.loc[mask,'temperature'])    
+    print ('Positive Tgradients: ', dfff_r.loc[mask,name_temperature])    
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     #print ('TEST SHIFT ', s,': ', dfff_p['Rgradient5R'].shift(s,freq='T').head(n=20))
     h,p = plot_profile(dfff_r['Rgradient10R'],dfff_r['Tgradient10R'],nbins=30, is_shifted=False)
     plt.xlabel('RH change rate (%/min)')
     plt.ylabel(r'Temperature change rate (ºC/min)',fontsize=22)
-    plt.savefig('Tgradient10R_corr_Rgradient10R_shift0T.pdf')
+    plt.savefig('{:s}/Tgradient10R_corr_Rgradient10R_shift0T{:s}.pdf'.format(resultdir,tits))
     
     for s in np.arange(2,15,1):
         
@@ -184,7 +189,7 @@ def plot_temperature_gradient() -> None:
         h,p = plot_profile(dfff_r['Rgradient10R'].shift(s,freq='T'),dfff_r['Tgradient10R'],nbins=30, is_shifted=True)
         plt.xlabel('RH change rate (%/min)')
         plt.ylabel(r'Temperature change rate (ºC/min)',fontsize=22)
-        plt.savefig('Tgradient10R_corr_Rgradient10R_shift{:d}T.pdf'.format(s))
+        plt.savefig('{:s}/Tgradient10R_corr_Rgradient10R_shift{:d}T{:s}.pdf'.format(resultdir,s,tits))
     
     for s in np.arange(2,120,10):
         plt.figure(figsize = (10,5), constrained_layout = True)
@@ -192,7 +197,7 @@ def plot_temperature_gradient() -> None:
         h,p = plot_profile(dfff['pressure'].shift(s,freq='T'),dfff['Tgradient10R'],nbins=50, is_shifted=True)
         plt.xlabel('pressure (mbar)')
         plt.ylabel(r'Temperature change rate (ºC/min)',fontsize=22)
-        plt.savefig('Tgradient10R_corr_pressure_shift{:d}T.pdf'.format(s))
+        plt.savefig('{:s}/Tgradient10R_corr_pressure_shift{:d}T{:s}.pdf'.format(resultdir,s,tits))
 
     for s in np.arange(2,120,10):
         plt.figure(figsize = (10,5), constrained_layout = True)
@@ -200,7 +205,7 @@ def plot_temperature_gradient() -> None:
         h,p = plot_profile(dfff['Pgradient10R'].shift(s,freq='T'),dfff['Tgradient10R'],nbins=50, is_shifted=True)
         plt.xlabel('Pressure change rate (mbar/min)')
         plt.ylabel(r'Temperature change rate (ºC/min)',fontsize=23)
-        plt.savefig('Tgradient10R_corr_Pgradient5R_shift{:d}T.pdf'.format(s))
+        plt.savefig('{:s}/Tgradient10R_corr_Pgradient5R_shift{:d}T{:s}.pdf'.format(resultdir,s,tits))
 
 def plot_DTR() -> None:
 
@@ -298,7 +303,7 @@ def plot_DTR() -> None:
     plt.legend(loc='best')
     plt.xlabel('Relative humidity (%)')
     plt.ylabel(r'DTR fit residuals')
-    plt.savefig('DiurnalTemperature_corr_d_humidity{:s}.pdf'.format(tits))
+    plt.savefig('{:s}/DiurnalTemperature_corr_d_humidity{:s}.pdf'.format(resultdir,tits))
 
     print ('HUM FIT RES.:',popt)
     hum_p0 = popt[0]
@@ -366,7 +371,7 @@ def plot_DTR() -> None:
     plt.legend(loc='best')
     plt.xlabel('Relative humidity (%)')
     plt.ylabel(r'DTR fit residuals')
-    plt.savefig('DiurnalTemperature_corr_dCm_humidity{:s}.pdf'.format(tits))
+    plt.savefig('{:s}/DiurnalTemperature_corr_dCm_humidity{:s}.pdf'.format(resultdir,tits))
 
     print ('HUM FIT dCm RES.:',popt)
     hum_dCm_p0 = popt[0]
@@ -397,17 +402,18 @@ def plot_DTR() -> None:
     plt.xlim(0.,100.)    
     plt.xlabel('Relative humidity (%)')
     plt.ylabel(r'DTR fit residuals')
-    plt.savefig('DiurnalTemperature_corr_dCm_humidity_hum{:s}.pdf'.format(tits))
-    
-    plt.figure()
-    naoi_correlate(df_naoi,diu_lik_daily.full_residuals(),color='r')
-    naoi_profile(df_naoi,diu_lik_daily.full_residuals(),nbins=12)
-    plt.savefig('DiurnalTemperature_corr_d_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_corr_dCm_humidity_hum{:s}.pdf'.format(resultdir,tits))
 
-    plt.figure()
-    naoi_correlate(df_naoi,diu_lik_mean.full_residuals(),color='r')
-    naoi_profile(df_naoi,diu_lik_mean.full_residuals(),nbins=12)
-    plt.savefig('DiurnalTemperature_corr_m_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,diu_lik_daily.full_residuals(),color='r')
+        naoi_profile(df_naoi,diu_lik_daily.full_residuals(),nbins=12)
+        plt.savefig('{:s}/DiurnalTemperature_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
+        
+        plt.figure()
+        naoi_correlate(df_naoi,diu_lik_mean.full_residuals(),color='r')
+        naoi_profile(df_naoi,diu_lik_mean.full_residuals(),nbins=12)
+        plt.savefig('{:s}/DiurnalTemperature_corr_m_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_diurnal_spread(dfff, name_temperature, coverage)
@@ -424,7 +430,7 @@ def plot_DTR() -> None:
     #plt.xlabel('Year')
     plt.ylabel('DTR (ºC)', fontsize=18)
     #plt.gca().yaxis.set_tick_params(labelsize=18)    
-    plt.savefig('Temperaturadiurnal_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Temperaturadiurnal_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     tits = tits.replace('_offset','')
 
@@ -436,7 +442,7 @@ def plot_DTR() -> None:
     ax = plt.gca()
     ax.set_xlim(-0.05,0.3)
     ax.set_ylim(0,1.0)
-    plt.savefig('DiurnalTemperature_profiled_daily_contour{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_profiled_daily_contour{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     #2D profile of diurnal temperature increase and amplitude increase
     plt.figure(figsize = (8,7), constrained_layout = True)
@@ -446,7 +452,7 @@ def plot_DTR() -> None:
     ax = plt.gca()
     ax.set_xlim(-0.05,0.3)
     ax.set_ylim(0,1.0)
-    plt.savefig('DiurnalTemperature_profiled_dailyhum_contour{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_profiled_dailyhum_contour{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     # Profile the diurnal temperature increase parameter now
     NN   = 50
@@ -464,7 +470,7 @@ def plot_DTR() -> None:
         diu_lik_daily_hum_fulloffset.profile_likelihood(4,chi2=8,NN=NN,method=method,col='k')
         tits = tits + '_offset'                        
     #diu_lik_dCm_NOT.profile_likelihood(4,chi2=11,NN=NN,method=method,col='violet')
-    plt.savefig('DiurnalTemperatureSeasonal_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperatureSeasonal_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     tits = tits.replace('_offset','')
     
     # Profile the diurnal temperature increase parameter now
@@ -480,7 +486,7 @@ def plot_DTR() -> None:
         diu_lik_daily_hum_offset.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='cyan',alpha=0.2)
         diu_lik_daily_hum_fulloffset.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='k',alpha=0.2)
         tits = tits + '_offset'                
-    plt.savefig('DiurnalTemperature_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     tits = tits.replace('_offset','')
     
     #2D profile of diurnal temperature increase and amplitude increase
@@ -488,7 +494,7 @@ def plot_DTR() -> None:
     #plt.xlabel(r'$b$ (diurnal temperature amplitude increase) (ºC/10y)', fontsize = 24)
     #plt.ylabel(r'$\Delta C_{m}$ (seasonal oscillation ampltiude increase) (ºC/10y)', fontsize = 22)
     #diu_lik_dCm.profile_likelihood_2d(1,4,chi2=20,NN=25,method=method,tol=1e-7,clabel=r'$D(b,\Delta C_{m})$')    
-    #plt.savefig('DiurnalTemperature_profiled_contour.pdf', bbox_inches='tight')
+    #plt.savefig('{:s}/DiurnalTemperature_profiled_contour.pdf', bbox_inches='tight')
 
     #plt.figure(figsize = (10,5), constrained_layout = True)
     #plot_diurnal(dfff,name_temperature)
@@ -530,7 +536,7 @@ def plot_datacount() -> None:
     ax.yaxis.set_tick_params(labelsize=18)
     ax.xaxis.set_tick_params(labelsize=18)
     ax.set_xlim([0.,100.])
-    plt.savefig('Data_Count.pdf')
+    plt.savefig('{:s}/Data_Count{:s}.pdf'.format(resultdir,tits))
     plt.show()
     
     
@@ -547,7 +553,7 @@ def plot_temperature() -> None:
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfff, name_temperature, 'Temperature (ºC)')
-    plt.savefig('Temperatura_mensual.pdf')
+    plt.savefig('{:s}/Temperatura_mensual.pdf')
     plt.show()
     
     plt.clf()
@@ -704,7 +710,7 @@ def plot_temperature() -> None:
     else:
         plot_historic_fit_results(dfn,mask,temp_lik_median,is_daily=True, day_coverage=day_coverage_for_samples)
     #plot_historic_fit_results(dfn_H,mask_H,temp_lik_Haslebacher,is_daily=False,color='orange')    
-    plt.savefig('Temperatura_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('Temperatura_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -712,7 +718,7 @@ def plot_temperature() -> None:
     plt.ylabel('Temperature (ºC)')
     temp_lik_median.plot_residuals()
     temp_lik_Haslebacher.plot_residuals(color='orange')
-    plt.savefig('Temperatura_residuals.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperatura_residual{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals = temp_lik_median.red_residuals()
@@ -737,7 +743,7 @@ def plot_temperature() -> None:
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured),fontsize=20)
     a[1].legend(loc='best')    
     
-    plt.savefig('Temperatura_residuals_hist.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperatura_residuals_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     chi2_limit_rob_temperature = 3
     mask_chi2 = np.where(residuals**2 < chi2_limit_rob_temperature)
@@ -752,21 +758,22 @@ def plot_temperature() -> None:
     residuals_rob = temp_lik_median_rob.red_residuals()
     chi2_measured_rob = temp_lik_median_rob.chi_square_ndf()
 
-    plt.figure()
-    naoi_correlate(df_naoi,temp_lik_mean.full_residuals(),color='r')
-    naoi_profile(df_naoi,temp_lik_mean.full_residuals(),nbins=12)    
-    plt.savefig('Temperature_corr_d_NAOI.pdf',bbox_inches='tight')
+    if is_naoi:    
+        plt.figure()
+        naoi_correlate(df_naoi,temp_lik_mean.full_residuals(),color='r')
+        naoi_profile(df_naoi,temp_lik_mean.full_residuals(),nbins=12)    
+        plt.savefig('{:s}/Temperature_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
-    plt.clf()
-    naoi_correlate(df_naoi,temp_lik_Haslebacher.full_residuals(),color='orange')
-    naoi_profile(df_naoi,temp_lik_Haslebacher.full_residuals(),nbins=12)        
-    plt.savefig('Temperature_corr_m_NAOI.pdf',bbox_inches='tight')
+        plt.clf()
+        naoi_correlate(df_naoi,temp_lik_Haslebacher.full_residuals(),color='orange')
+        naoi_profile(df_naoi,temp_lik_Haslebacher.full_residuals(),nbins=12)        
+        plt.savefig('{:s}/Temperature_corr_m_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
-    plt.clf()
-    naoi_correlate(df_naoi,temp_lik_Haslebacher.Y.resample('Y').mean(),color='b')
-    #naoi_profile(df_naoi,temp_lik_Haslebacher.Y.resample('Y').mean(),nbins=12)            
-    plt.legend(loc='best')    
-    plt.savefig('Temperature_corr_y_NAOI.pdf',bbox_inches='tight')
+        plt.clf()
+        naoi_correlate(df_naoi,temp_lik_Haslebacher.Y.resample('Y').mean(),color='b')
+        #naoi_profile(df_naoi,temp_lik_Haslebacher.Y.resample('Y').mean(),nbins=12)            
+        plt.legend(loc='best')    
+        plt.savefig('{:s}/Temperature_corr_y_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
 
     # Profile the temperature increase parameter now
@@ -792,7 +799,7 @@ def plot_temperature() -> None:
         temp_lik_median_dorner.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='lightcyan')
         temp_lik_median_schmuck.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='lightseagreen')
         tits = tits + '_coauthors'
-    plt.savefig('Temperature_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Temperature_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     tits = tits.replace('_offset','')
     tits = tits.replace('_coauthors','')    
     # Profile the temperature phase shift parameter now
@@ -818,7 +825,7 @@ def plot_temperature() -> None:
     plt.ylabel('Probability / ºC', fontsize = 30)
     plt.xticks(fontsize = 25)
     plt.yticks(fontsize = 25)
-    plt.savefig('Histogram_temperature.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_temperature{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -827,20 +834,20 @@ def plot_temperature() -> None:
     plt.ylabel('Probability / ºC', fontsize = 30)
     plt.xticks(fontsize = 25)
     plt.yticks(fontsize = 25)
-    plt.savefig('Histogram_logtemperature.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_logtemperature{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     #Distribucions anuals i mensuals:
     plt.clf()
     plot_hist(dfff, name_temperature, 1.,'Temperature (ºC)','Probability / ºC', 'ºC', xoff=0.08, coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_temperature.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_temperature{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plot_hist(dfff, name_temperature, 1.,'Temperature (ºC)','Probability / ºC', 'ºC', xoff=0.08, is_night=True, coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_temperature_night.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_temperature_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
@@ -891,7 +898,7 @@ def plot_temperature_not() -> None:
     ax.set_ylabel('Number of months', fontsize=18)
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)    
-    plt.savefig('Data_Count_NOT.pdf')
+    plt.savefig('{:s}/Data_Count_NOT{:s}.pdf'.format(resultdir,tits))
     plt.show()
         
     dfn   = dfff[dfff['coverage'] > coverage_cut_for_daily_samples]
@@ -944,15 +951,15 @@ def plot_temperature_not() -> None:
     mask_sun_az = ((dfn['sun_az'] > 190) & (dfn['sun_az'] < 220))
     mask_sun_azalt = mask_sun_alt & mask_sun_az 
     plt.plot(dfn.loc[mask_sun_alt,'sun_az'],dfn.loc[mask_sun_alt,name_temperature]-temp_lik_median.mu_func(temp_lik_median.res.x[0:-1],np.array(dfn.loc[mask_sun_alt,'mjd'].add(mjd_corrector-mjd_start_2003).mul(12/number_days_year).values.astype(float))),'.',color='r')
-    plt.savefig('SunAz_Temperature_NOT.pdf')
+    plt.savefig('{:s}/SunAz_Temperature_NOT{:s}.pdf'.format(resultdir,tits))
     
     plt.clf()
     plt.plot(dfn.loc[mask_sun_az,'sun_alt'],dfn.loc[mask_sun_az,name_temperature]-temp_lik_median.mu_func(temp_lik_median.res.x[0:-1],np.array(dfn.loc[mask_sun_az,'mjd'].add(mjd_corrector-mjd_start_2003).mul(12/number_days_year).values.astype(float))),'.',color='r')
-    plt.savefig('SunAlt_Temperature_NOT.pdf')
+    plt.savefig('{:s}/SunAlt_Temperature_NOT{:s}.pdf'.format(resultdir,tits))
     
     plt.clf()
     plt.plot(dfn.loc[mask_sun_azalt].index,dfn.loc[mask_sun_azalt,name_temperature]-temp_lik_median.mu_func(temp_lik_median.res.x[0:-1],np.array(dfn.loc[mask_sun_azalt,'mjd'].add(mjd_corrector-mjd_start_2003).mul(12/number_days_year).values.astype(float))),'.',color='r')
-    plt.savefig('SunAltAz_Temperature_NOT.pdf')
+    plt.savefig('{:s}/SunAltAz_Temperature_NOT{:s}.pdf'.format(resultdir,tits))
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_historic(dfff[mask_1min], name_temperature, coverage_1min)
@@ -960,7 +967,7 @@ def plot_temperature_not() -> None:
     plt.ylabel('Temperature (ºC)', fontsize=18)
     plot_historic_fit_results(dfn,(dfn.index < NOT_end_of_5min),temp_lik_median,is_daily=True, day_coverage=day_coverage_for_not * 2/5)
     plot_historic_fit_results(dfn,(dfn.index > NOT_end_of_5min),temp_lik_median,is_daily=True, day_coverage=day_coverage_for_not * 2/1)
-    plt.savefig('Temperatura_sencer_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperatura_sencer_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -968,7 +975,7 @@ def plot_temperature_not() -> None:
     plt.ylabel('Temperature (ºC)')
     temp_lik_median.plot_residuals()
     temp_lik_Haslebacher.plot_residuals(color='orange')
-    plt.savefig('Temperatura_residuals_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperatura_residuals_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals = temp_lik_median.red_residuals()
@@ -991,7 +998,7 @@ def plot_temperature_not() -> None:
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured),fontsize=20)
     a[1].legend(loc='best')    
     
-    plt.savefig('Temperatura_residuals_hist_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperatura_residuals_hist_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     chi2_limit_rob_temperature = 3
     mask_chi2 = np.where(residuals**2 < chi2_limit_rob_temperature)
@@ -1006,20 +1013,21 @@ def plot_temperature_not() -> None:
     residuals_rob = temp_lik_median_rob.red_residuals()
     chi2_measured_rob = temp_lik_median_rob.chi_square_ndf()
 
-    #plt.figure()
-    #naoi_correlate(df_naoi,temp_lik_mean.full_residuals(),color='r')
-    #naoi_profile(df_naoi,temp_lik_mean.full_residuals(),nbins=12)    
-    #plt.savefig('Temperature_corr_d_NAOI_NOT.pdf',bbox_inches='tight')
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,temp_lik_mean.full_residuals(),color='r')
+        naoi_profile(df_naoi,temp_lik_mean.full_residuals(),nbins=12)    
+        plt.savefig('Temperature_corr_d_NAOI_NOT.pdf',bbox_inches='tight')
 
-    #plt.clf()
-    #naoi_correlate(df_naoi,temp_lik_Haslebacher.full_residuals(),color='orange')
-    #naoi_profile(df_naoi,temp_lik_Haslebacher.full_residuals(),nbins=12)        
-    #plt.savefig('Temperature_corr_m_NAOI_NOT.pdf',bbox_inches='tight')
+        plt.clf()
+        naoi_correlate(df_naoi,temp_lik_Haslebacher.full_residuals(),color='orange')
+        naoi_profile(df_naoi,temp_lik_Haslebacher.full_residuals(),nbins=12)        
+        plt.savefig('Temperature_corr_m_NAOI_NOT.pdf',bbox_inches='tight')
 
-    #plt.clf()
-    #naoi_correlate(df_naoi,temp_lik_Haslebacher.Y.resample('Y').mean(),color='b')
-    #plt.legend(loc='best')    
-    #plt.savefig('Temperature_corr_y_NAOI_NOT.pdf',bbox_inches='tight')
+        plt.clf()
+        naoi_correlate(df_naoi,temp_lik_Haslebacher.Y.resample('Y').mean(),color='b')
+        plt.legend(loc='best')    
+        plt.savefig('Temperature_corr_y_NAOI_NOT.pdf',bbox_inches='tight')
 
 
     # Profile the temperature increase parameter now
@@ -1033,14 +1041,14 @@ def plot_temperature_not() -> None:
     temp_lik_median_rob.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='r')
     temp_lik_Haslebacher.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='orange')    
 
-    plt.savefig('Temperature_b_profiled_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperature_b_profiled_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     plt.hist(dfff[name_temperature], density = True, bins = 70, color = 'steelblue')
     plt.xlabel('Temperature (ºC)', fontsize = 30)
     plt.ylabel('Probability / ºC', fontsize = 30)
     plt.xticks(fontsize = 25)
     plt.yticks(fontsize = 25)
-    plt.savefig('Histogram_temperature_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_temperature_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -1049,29 +1057,29 @@ def plot_temperature_not() -> None:
     plt.ylabel('Probability / ºC', fontsize = 30)
     plt.xticks(fontsize = 25)
     plt.yticks(fontsize = 25)
-    plt.savefig('Histogram_logtemperature_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_logtemperature_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     #Distribucions anuals i mensuals:
     plt.clf()
     plot_hist(dfff, name_temperature, 1.,'Temperature (ºC)','Probability / ºC', 'ºC', xoff=0.08, coverage_cut=coverage_cut)
-    plt.savefig('Hist_temperature_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_temperature_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plot_hist(dfff, name_temperature, 1.,'Temperature (ºC)','Probability / ºC', 'ºC', xoff=0.08, is_night=True, coverage_cut=coverage_cut)
-    plt.savefig('Hist_temperature_night_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_temperature_night_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
     plt.clf()
     plot_mensual(dfff, name_temperature, 'Temperature (ºC)')
-    plt.savefig('Temperatura_mensual_NOT.pdf')
+    plt.savefig('{:s}/Temperatura_mensual_NOT{:s}.pdf'.format(resultdir,tits))
     plt.show()
     
     plt.clf()
     plot_mensual_distributions(dfff, name_temperature, 'Temperature - monthly mean (ºC)', 0.1)
-    plt.savefig('Temperatura_distributions_NOT.png', bbox_inches='tight')
+    plt.savefig('{:s}/Temperatura_distributions_NOT{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     init_diu = np.array([8.2, 0., 0.9, 5.9, 0.7])
@@ -1174,7 +1182,7 @@ def plot_temperature_not() -> None:
     plt.legend(loc='best')
     plt.xlabel('Relative humidity (%)')
     plt.ylabel(r'DTR fit residuals')
-    plt.savefig('DiurnalTemperature_corr_d_humidity_NOT.pdf')
+    plt.savefig('{:s}/DiurnalTemperature_corr_d_humidity_NOT{:s}.pdf'.format(resultdir,tits))
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     residuals = diu_lik_dCm_daily_hum.full_residuals()    
@@ -1183,17 +1191,18 @@ def plot_temperature_not() -> None:
     plt.xlim(0.,100.)    
     plt.xlabel('Relative humidity (%)')
     plt.ylabel(r'DTR fit residuals')
-    plt.savefig('DiurnalTemperature_corr_d_humidity_hum_NOT.pdf')
-    
-    #plt.figure()
-    #naoi_correlate(df_naoi,diu_lik_daily.full_residuals(),color='r')
-    #naoi_profile(df_naoi,diu_lik_daily.full_residuals(),nbins=12)
-    #plt.savefig('DiurnalTemperature_corr_d_NAOI_NOT.pdf',bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_corr_d_humidity_hum_NOT{:s}.pdf'.format(resultdir,tits))
 
-    #plt.figure()
-    #naoi_correlate(df_naoi,diu_lik_mean.full_residuals(),color='r')
-    #naoi_profile(df_naoi,diu_lik_mean.full_residuals(),nbins=12)
-    #plt.savefig('DiurnalTemperature_corr_m_NAOI_NOT.pdf',bbox_inches='tight')
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,diu_lik_daily.full_residuals(),color='r')
+        naoi_profile(df_naoi,diu_lik_daily.full_residuals(),nbins=12)
+        plt.savefig('DiurnalTemperature_corr_d_NAOI_NOT.pdf',bbox_inches='tight')
+
+        plt.figure()
+        naoi_correlate(df_naoi,diu_lik_mean.full_residuals(),color='r')
+        naoi_profile(df_naoi,diu_lik_mean.full_residuals(),nbins=12)
+        plt.savefig('DiurnalTemperature_corr_m_NAOI_NOT.pdf',bbox_inches='tight')
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_diurnal_spread(dfff_5min, name_temperature, coverage)
@@ -1206,7 +1215,7 @@ def plot_temperature_not() -> None:
     #plot_diurnal_fit_results(mjd_m_NOT,diu_lik_dCm_NOT,is_daily=False,color='violet')
     #plt.xlabel('Year')
     plt.ylabel('DTR (ºC)', fontsize=18)
-    plt.savefig('Temperaturadiurnal_sencer_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Temperaturadiurnal_sencer_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     #2D profile of diurnal temperature increase and amplitude increase
@@ -1217,7 +1226,7 @@ def plot_temperature_not() -> None:
     ax = plt.gca()
     ax.set_xlim(0,0.4)
     ax.set_ylim(0,1.0)
-    plt.savefig('DiurnalTemperature_profiled_daily_contour_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_profiled_daily_contour_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     #2D profile of diurnal temperature increase and amplitude increase
     plt.figure(figsize = (8,7), constrained_layout = True)
@@ -1227,7 +1236,7 @@ def plot_temperature_not() -> None:
     ax = plt.gca()
     ax.set_xlim(0,0.4)
     ax.set_ylim(0,1.0)
-    plt.savefig('DiurnalTemperature_profiled_dailyhum_contour_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_profiled_dailyhum_contour_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     # Profile the diurnal temperature increase parameter now
     NN   = 50
@@ -1239,7 +1248,7 @@ def plot_temperature_not() -> None:
     diu_lik_dCm_daily.profile_likelihood(4,chi2=11,NN=NN,method=method,col='g')
     diu_lik_dCm.profile_likelihood(4,chi2=8,NN=NN,method=method,col='orange')
     diu_lik_dCm_daily_hum.profile_likelihood(4,chi2=8,NN=NN,method=method,col='deepskyblue')
-    plt.savefig('DiurnalTemperatureSeasonal_b_profiled_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperatureSeasonal_b_profiled_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     
     # Profile the diurnal temperature increase parameter now
@@ -1250,7 +1259,7 @@ def plot_temperature_not() -> None:
     diu_lik_dCm_daily.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='violet')
     diu_lik_dCm_daily_hum.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='deepskyblue')
     diu_lik_mean.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='orange')
-    plt.savefig('DiurnalTemperature_b_profiled_NOT.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/DiurnalTemperature_b_profiled_NOT{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     num = 20
     grad_thr = 1
@@ -1283,68 +1292,107 @@ def plot_temperature_not() -> None:
         plt.clf()
         plot_hist(dfff, var, 0.01,'Temperature change rate (ºC/min)','Probability / (ºC/min)', 'ºC/min', xoff=0.08, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'.pdf', bbox_inches='tight')
+        plt.savefig('{:s}/Hist_'+var+'{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
         plt.show()
 
         plt.clf()
         plot_hist(dfff, var, 0.01,'Temperature change rate (ºC/min)','Probability / (ºC/min)', 'ºC/min', xoff=0.08, is_night=True, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'_night.pdf', bbox_inches='tight')
+        plt.savefig('{:s}/Hist_'+var+'_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
         plt.show()
         
         plt.clf()
         plot_mensual(dfff, var, 'Temperature change rate (ºC/min)')
-        plt.savefig(var+'_mensual.pdf', bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
         
         plt.figure(figsize = (10,5), constrained_layout = True)
         plot_historic(dfff, var, coverage)
         #plt.xlabel('Year')
         plt.ylabel('Temperature change rate (ºC/min)',fontsize=18)
-        plt.savefig(var+'_sencer.pdf', bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
         
     name_temperature = name_temperature_save 
     name_humidity    = name_humidity_save 
 
+def plot_DP() -> None:
+
+    dfff = dff[((dff['humidity_reliable']==True) & (dff['temperature_reliable']==True))]
+
+    mask_highRH = (dfff[name_humidity] > 70)
+    mask_lowDP  = ((dfff[name_temperature]-dfff['DP']) < 5)
+    
+    plt.figure(figsize = (10,5), constrained_layout = True)
+    h,p = plot_profile(dfff[name_humidity],dfff[name_temperature]-dfff['DP'],nbins=50)
+    plt.xlabel('Relative Humidity (%)', fontsize=22)
+    plt.ylabel('Temperature minus dew point (ºC)',fontsize=22)
+    plt.legend(loc='best')
+    plt.savefig('{:s}/DP_vs_Humidity_corr{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
+
+    plt.figure(figsize = (10,5), constrained_layout = True)
+    h,p = plot_profile(dfff.loc[mask_highRH,name_humidity],dfff.loc[mask_highRH,name_temperature]-dfff.loc[mask_highRH,'DP'],nbins=50)
+    plt.xlabel('Relative Humidity (%)', fontsize=22)
+    plt.ylabel('Temperature minus dew point (ºC)',fontsize=22)
+    plt.legend(loc='best')
+    plt.savefig('{:s}/DP_vs_HighHumidity_corr{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
+
+    plt.figure(figsize = (10,5), constrained_layout = True)
+    h,p = plot_profile(dfff[name_temperature]-dfff['DP'],dfff[name_humidity],nbins=50)
+    plt.ylabel('Relative Humidity (%)', fontsize=22)
+    plt.xlabel('Temperature minus dew point (ºC)',fontsize=22)
+    plt.legend(loc='best')
+    plt.savefig('{:s}/Humidity_vs_DP_corr{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
+
+    plt.figure(figsize = (10,5), constrained_layout = True)
+    h,p = plot_profile(dfff.loc[mask_lowDP,name_temperature]-dfff.loc[mask_lowDP,'DP'],dfff.loc[mask_lowDP,name_humidity],nbins=50)
+    plt.ylabel('Relative Humidity (%)', fontsize=22)
+    plt.xlabel('Temperature minus dew point (ºC)',fontsize=22)
+    plt.legend(loc='best')
+    plt.savefig('{:s}/Humidity_vs_LowDP_corr{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
+
+    
 def plot_humidity() -> None:
 
     #plt.rcParams.update(params)
 
+    tits = '_2024'
+    
     is_offset = False
     is_coauthor_tests = True
 
-    df_not = pd.read_hdf(not_file)
+    if is_not:
+        df_not = pd.read_hdf(not_file)
 
-    plt.figure()
-    #not_correlate(df_not['Humidity'],dff['humidity'],color='r')
-    not_profile(df_not['Humidity'].resample('D').median(),dff['humidity'].resample('D').median(),nbins=25)    
-    plt.savefig('Humidity_corr_NOT.pdf',bbox_inches='tight')
+        plt.figure()
+        #not_correlate(df_not['Humidity'],dff['humidity'],color='r')
+        not_profile(df_not['Humidity'].resample('D').median(),dff[name_humidity].resample('D').median(),nbins=25)    
+        plt.savefig('{:s}/Humidity_corr_NOT{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
-    plt.figure(figsize = (10,5), constrained_layout = True)
-    not_profile_time(df_not,dff,'Humidity','humidity')
-    plt.ylabel('RH (MAGIC) - RH (NOT)')
-    plt.savefig('Humidity_corr_NOT_time.pdf',bbox_inches='tight')
+        plt.figure(figsize = (10,5), constrained_layout = True)
+        not_profile_time(df_not,dff,'Humidity',name_humidity)
+        plt.ylabel('RH (MAGIC) - RH (NOT)')
+        plt.savefig('{:s}/Humidity_corr_NOT_time{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
-    plt.figure(figsize = (10,5), constrained_layout = True)
-    not_profile_time(df_not[df_not['Humidity']<90],dff[dff['humidity']<90],'Humidity','humidity',85,print_threshold=50)
-    plt.ylabel('RH (MAGIC) - RH (NOT)')
-    plt.savefig('Humidity_corr_NOT_time_lowhum.pdf',bbox_inches='tight')
+        plt.figure(figsize = (10,5), constrained_layout = True)
+        not_profile_time(df_not[df_not['Humidity']<90],dff[dff[name_humidity]<90],'Humidity',name_humidity,85,print_threshold=50)
+        plt.ylabel('RH (MAGIC) - RH (NOT)')
+        plt.savefig('{:s}/Humidity_corr_NOT_time_lowhum{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
-    plt.figure(figsize = (10,5), constrained_layout = True)
-    not_profile_time(df_not,dff[dff['temperature_reliable']==True],'TempInAirDegC',name_temperature,85,print_threshold=10)
-    plt.ylabel('Temp (MAGIC) - Temp (NOT)')
-    plt.savefig('Temperature_corr_NOT_time.pdf',bbox_inches='tight')
+        plt.figure(figsize = (10,5), constrained_layout = True)
+        not_profile_time(df_not,dff[dff['temperature_reliable']==True],'TempInAirDegC',name_temperature,85,print_threshold=10)
+        plt.ylabel('Temp (MAGIC) - Temp (NOT)')
+        plt.savefig('{:s}/Temperature_corr_NOT_time{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
     day_coverage_for_humidity = 70
     
     if (is_20to22):
         dfff = dff[(dff['humidity_reliable']==True) | (dff.index.year==2020) | (dff.index.year==2021) | (dff.index.year==2022) | (dff.index.year==2023) ]
-        tits = '_with20to22'
+        #tits = '_with20to22'
         dfff_no = dff[(dff['humidity_reliable']==True) & (dff.index.year!=2020) & (dff.index.year!=2021) & (dff.index.year!=2022) ]
     else:
         dfff = dff[(dff['humidity_reliable']==True)]
-        tits = ''        
+        #tits = ''        
 
     dfff, coverage = apply_coverage(dfff,debug=False)
     dfn = dfff[(dfff['coverage'] > coverage_cut_for_daily_samples)]
@@ -1463,14 +1511,14 @@ def plot_humidity() -> None:
     plt.xlabel('Year')
     plt.ylabel('Relative Humidity (%)')
     hum_lik_mean.plot_residuals()
-    plt.savefig('Humitat_residuals{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plt.xlabel('Year')
     plt.ylabel('Relative Humidity (%)')
     hum_lik_mean2.plot_residuals()
-    plt.savefig('Humitat_residuals2{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals2{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals_mean = hum_lik_mean.red_residuals()
@@ -1498,7 +1546,7 @@ def plot_humidity() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('Humitat_residuals_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     plt.figure()
     fig,a = plt.subplots(1,2)
@@ -1510,13 +1558,13 @@ def plot_humidity() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4_offset),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('Humitat_residuals_hist_offset{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals_hist_offset{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
-    plt.figure()
-    naoi_correlate(df_naoi,hum_lik_mean.full_residuals(),color='r')
-    naoi_profile(df_naoi,hum_lik_mean.full_residuals(),nbins=12)    
-    plt.savefig('Humitat_corr_d_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
-
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,hum_lik_mean.full_residuals(),color='r')
+        naoi_profile(df_naoi,hum_lik_mean.full_residuals(),nbins=12)    
+        plt.savefig('{:s}/Humidity_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
     # Profile the humidity increase parameter now
     plt.figure()
@@ -1550,7 +1598,7 @@ def plot_humidity() -> None:
         hum_lik_median2_schmuck.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='lightseagreen')
         tits = tits + '_coauthors'
         
-    plt.savefig('Humitat_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     tits = tits.replace('_offset','')
     tits = tits.replace('_coauthors','')
     
@@ -1559,13 +1607,13 @@ def plot_humidity() -> None:
     plt.xlabel('Relative humidity (%)')
     plt.ylabel('Probability / %')
     #plt.xlim(0,100)
-    plt.savefig('Histogram_humidity{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_humidity{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dfff.index, dfff[name_humidity])
     plt.ylabel('Relative humidity (%)')
-    plt.savefig('Histogram_lowhumidity_vsTime{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_lowhumidity_vsTime{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
         
     plt.clf()
@@ -1573,58 +1621,58 @@ def plot_humidity() -> None:
     plt.xlabel('Relative humidity (%)')
     plt.ylabel('Probability / %')
     #plt.xlim(0,100)
-    plt.savefig('Histogram_loghumidity{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_loghumidity{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_hist(dfff, name_humidity, 1.,'Relative humidity (%)','Probability / %', '\%', xoff=0., loc='right', coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_humidity{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Hist_humidity{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_hist(dfff, name_humidity, 1.,'Relative humidity (%)','Probability / %', '\%', xoff=0., loc='right', is_night=True, coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_humidity_night{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Hist_humidity_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
  
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfff, name_humidity,'RH (%)', fullfits=True)
-    plt.savefig('Humitat_mensual_fullfits{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual_fullfits{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfff, name_humidity,'Relative humidity (%)')
-    plt.savefig('Humitat_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfn, name_humidity,'Relative humidity (%)')
-    plt.savefig('Humitat_mensual_low{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual_low{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual_diurnal(dfn, name_humidity,r'$\Delta$ RH (%)', min_coverage=coverage_cut, day_coverage=day_coverage_for_samples, is_lombardi=True)
     plt.ylim([-20,20])
-    plt.savefig('Humitat_mensual_diurnal{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual_diurnal{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
         
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_sunalt(dfn[dfn[name_humidity]<90], name_humidity,r'Median relative humidity (%)', join_months=True)
     plt.ylim([10., 50.])
-    plt.savefig('Humitat_diurnal{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_diurnal{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual_distributions(dfn, name_humidity, 'Relative Humidity - monthly mean (ºC)', 0.1)
-    plt.savefig('Humidity_distributions{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_distributions{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_historic(dfff, name_humidity, coverage)
     plt.ylabel('Relative Humidity (%)')
     #plt.xlabel('Year')
-    plt.savefig('Humitat_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -1641,7 +1689,7 @@ def plot_humidity() -> None:
         tits = tits + '_offset'        
     else:
         plot_historic_fit_results(dfn,mask,hum_lik_median4,is_daily=True, day_coverage=day_coverage_for_humidity,color='red',is_sigma2=True)
-    plt.savefig('Humitat_sencer_fits{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_sencer_fits{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     tits = tits.replace('_offset','')
     
@@ -1656,25 +1704,25 @@ def plot_humidity() -> None:
         plt.clf()
         plot_hist(dfff, var, 0.5,'Humidity change rate (%/min)','Probability / (%/min)', '%/min', xoff=0.08, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/Hist_'+var+'{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
 
         plt.clf()
         plot_hist(dfff, var, 0.5,'Humidity change rate (%/min)','Probability / (%/min)', '%/min', xoff=0.08, is_night=True, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'_night{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/Hist_'+var+'_night{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
         
         plt.clf()
         plot_mensual(dfff, var, 'Humidity change rate (%/min)')
-        plt.savefig(var+'_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
     
         plt.figure(figsize = (10,5), constrained_layout = True)
         plot_historic(dfff, var, coverage)
         #plt.xlabel('Year')
         plt.ylabel('Humidity change rate (%/min)')
-        plt.savefig(var+'_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
 
     dffff = dfff[(dfff['temperature_reliable']==True)]
@@ -1689,21 +1737,21 @@ def plot_humidity() -> None:
     plt.plot(dffff.loc[maskRvsT,'Rgradient1R'], dffff.loc[maskRvsT,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Rgradient1{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Rgradient1{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskStorm,'Rgradient1R'], dffff.loc[maskStorm,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Rgradient1_storm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Rgradient1_storm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskNoStorm,'Rgradient1R'], dffff.loc[maskNoStorm,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Rgradient1_nostorm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Rgradient1_nostorm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     
@@ -1715,21 +1763,21 @@ def plot_humidity() -> None:
     plt.plot(dffff.loc[maskRvsT,'Rgradient5R'], dffff.loc[maskRvsT,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Rgradient5{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Rgradient5{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskStorm,'Rgradient5R'], dffff.loc[maskStorm,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Rgradient5_storm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Rgradient5_storm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskNoStorm,'Rgradient5R'], dffff.loc[maskNoStorm,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Rgradient5_nostorm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Rgradient5_nostorm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     dfff_n = dff[(dff['humidity_reliable']==False)]
@@ -1739,7 +1787,7 @@ def plot_humidity() -> None:
     plt.plot(dfff_t[name_humidity], dfff_t[name_temperature]-dfff_t['DP'],'ro',linestyle='None')
     plt.xlabel('Humidity (%)')
     plt.ylabel('Temperature minus dew point (ºC)')
-    plt.savefig('TemperatureDP_vs_Humidity_baddata{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TemperatureDP_vs_Humidity_baddata{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     dfff_h = dfff_t[(dfff_t[name_humidity]>99.5)]
@@ -1747,14 +1795,14 @@ def plot_humidity() -> None:
     plt.clf()
     plt.hist(dfff_h[name_temperature]-dfff_h['DP'],bins = 100, log=True)
     plt.xlabel('Temperature minus dew point (ºC)')
-    plt.savefig('Temperature_vs_DP_highHum_baddata{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Temperature_vs_DP_highHum_baddata{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff[name_humidity],  dffff[name_temperature]-dffff['DP'],'ro',linestyle='None')
     plt.xlabel('Humidity (%/min)')
     plt.ylabel('Temperature - dew point (ºC)')
-    plt.savefig('TemperatureDP_vs_Humidity{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TemperatureDP_vs_Humidity{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     #pd.set_option('display.max_rows', None)
@@ -1843,14 +1891,14 @@ def plot_humidity_not() -> None:
     plt.xlabel('Year')
     plt.ylabel('Relative Humidity (%)')
     hum_lik_mean.plot_residuals()
-    plt.savefig('Humitat_residuals{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plt.xlabel('Year')
     plt.ylabel('Relative Humidity (%)')
     hum_lik_mean2.plot_residuals()
-    plt.savefig('Humitat_residuals2{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals2{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals_mean = hum_lik_mean.red_residuals()
@@ -1876,7 +1924,7 @@ def plot_humidity_not() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('Humitat_residuals_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     plt.figure()
     fig,a = plt.subplots(1,2)
@@ -1888,13 +1936,13 @@ def plot_humidity_not() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('Humitat_residuals_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_residuals_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
-    #plt.figure()
-    #naoi_correlate(df_naoi,hum_lik_mean.full_residuals(),color='r')
-    #naoi_profile(df_naoi,hum_lik_mean.full_residuals(),nbins=12)    
-    #plt.savefig('Humitat_corr_d_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
-
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,hum_lik_mean.full_residuals(),color='r')
+        naoi_profile(df_naoi,hum_lik_mean.full_residuals(),nbins=12)    
+        plt.savefig('{:s}/Humidity_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
     # Profile the humidity increase parameter now
     plt.figure()
@@ -1908,20 +1956,20 @@ def plot_humidity_not() -> None:
     hum_lik_median2.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='b',add_sigma=0.8)    
     hum_lik_median4.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='r',add_sigma=0.8)
     hum_lik_month.profile_likelihood(1,chi2=23,NN=NN,method=method,col='orange')        
-    plt.savefig('Humitat_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     
     plt.clf()
     plt.hist(dfff[name_humidity], density = True, bins = 100)
     plt.xlabel('Relative humidity (%)')
     plt.ylabel('Probability / %')
     #plt.xlim(0,100)
-    plt.savefig('Histogram_humidity{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_humidity{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dfff.index, dfff[name_humidity])
     plt.ylabel('Relative humidity (%)')
-    plt.savefig('Histogram_lowhumidity_vsTime{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_lowhumidity_vsTime{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
         
     plt.clf()
@@ -1929,51 +1977,51 @@ def plot_humidity_not() -> None:
     plt.xlabel('Relative humidity (%)')
     plt.ylabel('Probability / %')
     #plt.xlim(0,100)
-    plt.savefig('Histogram_loghumidity{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_loghumidity{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_hist(dfff, name_humidity, 1.,'Relative humidity (%)','Probability / %', '\%', xoff=0., loc='right', coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_humidity{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Hist_humidity{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_hist(dfff, name_humidity, 1.,'Relative humidity (%)','Probability / %', '\%', xoff=0., loc='right', is_night=True, coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_humidity_night{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Hist_humidity_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
  
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfff, name_humidity,'RH (%)', fullfits=True)
-    plt.savefig('Humitat_mensual_fullfits{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual_fullfits{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfff, name_humidity,'Relative humidity (%)')
-    plt.savefig('Humitat_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual(dfn, name_humidity,'Relative humidity (%)')
-    plt.savefig('Humitat_mensual_low{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual_low{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual_diurnal(dfn, name_humidity,r'$\Delta$ RH (%)', min_coverage=coverage_cut, day_coverage=day_coverage_for_samples, is_lombardi=True)
     plt.ylim([-20,20])
-    plt.savefig('Humitat_mensual_diurnal{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_mensual_diurnal{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
         
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_sunalt(dfn[dfn[name_humidity]<90], name_humidity,r'Median relative humidity (%)', join_months=True)
     plt.ylim([10., 50.])
-    plt.savefig('Humitat_diurnal{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_diurnal{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_mensual_distributions(dfn, name_humidity, 'Relative Humidity - monthly mean (ºC)', 0.1)
-    plt.savefig('Humidity_distributions{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_distributions{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -1981,7 +2029,7 @@ def plot_humidity_not() -> None:
     plot_historic(dfff[mask_5min], name_humidity, coverage_5min)
     plt.ylabel('Relative Humidity (%)')
     #plt.xlabel('Year')
-    plt.savefig('Humitat_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -1994,7 +2042,7 @@ def plot_humidity_not() -> None:
     plot_historic_fit_results(dfn,(dfn.index < NOT_end_of_5min),hum_lik_median2,is_daily=True, day_coverage=day_coverage_for_not * 2/5)
     plot_historic_fit_results(dfn,(dfn.index > NOT_end_of_5min),hum_lik_median2,is_daily=True, day_coverage=day_coverage_for_not * 2/1)
     #plot_historic_fit_results(dfn,mask,hum_lik_median4,is_daily=True, day_coverage=day_coverage_for_not,color='red',is_sigma2=True)
-    plt.savefig('Humitat_sencer_fits{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Humidity_sencer_fits{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     gradients = [1,5,10]
@@ -2007,25 +2055,25 @@ def plot_humidity_not() -> None:
         plt.clf()
         plot_hist(dfff, var, 0.5,'Humidity change rate (%/min)','Probability / (%/min)', '%/min', xoff=0.08, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/Hist_'+var+'{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
 
         plt.clf()
         plot_hist(dfff, var, 0.5,'Humidity change rate (%/min)','Probability / (%/min)', '%/min', xoff=0.08, is_night=True, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'_night{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/Hist_'+var+'_night{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
         
         plt.clf()
         plot_mensual(dfff, var, 'Humidity change rate (%/min)')
-        plt.savefig(var+'_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
     
         plt.figure(figsize = (10,5), constrained_layout = True)
         plot_historic(dfff, var, coverage)
         #plt.xlabel('Year')
         plt.ylabel('Humidity change rate (%/min)')
-        plt.savefig(var+'_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
         plt.show()
 
     dffff = dfff[(dfff['temperature_reliable']==True)]
@@ -2040,21 +2088,21 @@ def plot_humidity_not() -> None:
     plt.plot(dffff.loc[maskRvsT,'Rgradient1R'], dffff.loc[maskRvsT,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Rgradient1{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Rgradient1{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskStorm,'Rgradient1R'], dffff.loc[maskStorm,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Rgradient1_storm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Rgradient1_storm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskNoStorm,'Rgradient1R'], dffff.loc[maskNoStorm,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Rgradient1_nostorm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Rgradient1_nostorm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     
@@ -2066,46 +2114,46 @@ def plot_humidity_not() -> None:
     plt.plot(dffff.loc[maskRvsT,'Rgradient5R'], dffff.loc[maskRvsT,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Rgradient5{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Rgradient5{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskStorm,'Rgradient5R'], dffff.loc[maskStorm,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Rgradient5_storm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Rgradient5_storm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskNoStorm,'Rgradient5R'], dffff.loc[maskNoStorm,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Humidity change rate (%/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Rgradient5_nostorm{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Rgradient5_nostorm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     dfff_n = dff[(dff['humidity_reliable']==False)]
     dfff_t = dfff_n[(dfff_n['temperature_reliable']==False)]  #Filtre_Temperatures(dfff_n)
 
     plt.clf()
-    plt.plot(dfff_t['humidity'], dfff_t['temperature']-dfff_t['DP'],'ro',linestyle='None')
+    plt.plot(dfff_t[name_humidity], dfff_t[name_temperature]-dfff_t['DP'],'ro',linestyle='None')
     plt.xlabel('Humidity (%)')
     plt.ylabel('Temperature minus dew point (ºC)')
-    plt.savefig('TemperatureDP_vs_Humidity_baddata{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TemperatureDP_vs_Humidity_baddata{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
-    dfff_h = dfff_t[(dfff_t['humidity']>99.5)]
+    dfff_h = dfff_t[(dfff_t[name_humidity]>99.5)]
 
     plt.clf()
-    plt.hist(dfff_h['temperature']-dfff_h['DP'],bins = 100, log=True)
+    plt.hist(dfff_h[name_temperature]-dfff_h['DP'],bins = 100, log=True)
     plt.xlabel('Temperature minus dew point (ºC)')
-    plt.savefig('Temperature_vs_DP_highHum_baddata{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Temperature_vs_DP_highHum_baddata{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
-    plt.plot(dffff['humidity'],  dffff['temperature']-dffff['DP'],'ro',linestyle='None')
+    plt.plot(dffff[name_humidity],  dffff[name_temperature]-dffff['DP'],'ro',linestyle='None')
     plt.xlabel('Humidity (%/min)')
     plt.ylabel('Temperature - dew point (ºC)')
-    plt.savefig('TemperatureDP_vs_Humidity{:s}.png'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TemperatureDP_vs_Humidity{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     name_temperature = name_temperature_save 
@@ -2172,14 +2220,14 @@ def plot_pressure_not() -> None:
     plt.xlabel('Year')
     plt.ylabel('Atmospheric Pressure (hPa)')
     press_lik_mean2.plot_residuals()
-    plt.savefig('Pressure_residuals{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plt.xlabel('Year')
     plt.ylabel('Atmospheric Pressure (hPa)')
     press_lik_median2.plot_residuals()
-    plt.savefig('Pressure_residuals2{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals2{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals_mean2 = press_lik_mean2.red_residuals()
@@ -2202,12 +2250,13 @@ def plot_pressure_not() -> None:
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median2),fontsize=20)
     a[1].legend(loc='best')    
     
-    plt.savefig('Pressure_residuals_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
-    #plt.figure()
-    #naoi_correlate(df_naoi,press_lik_median2.full_residuals(),color='r')
-    #naoi_profile(df_naoi,press_lik_median2.full_residuals(),nbins=12)    
-    #lt.savefig('Pressure_corr_d_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,press_lik_median2.full_residuals(),color='r')
+        naoi_profile(df_naoi,press_lik_median2.full_residuals(),nbins=12)    
+        plt.savefig('{:s}/Pressure_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
     plt.figure()
     plt.xlabel(r'$b$ (atm. pressure increase) (%/10y)', fontsize = 25)
@@ -2218,14 +2267,14 @@ def plot_pressure_not() -> None:
     press_lik_median2.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='b')
     press_lik_median4.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='r')    
     press_lik_month.profile_likelihood(1,chi2=23,NN=NN,method=method,col='orange')        
-    plt.savefig('Pressure_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     
     
     plt.clf()
     plt.hist(dfff[name_pressure], density = True, bins = 100)
     plt.xlabel('Pressure (mbar)')
     plt.ylabel('Probability / mbar')
-    plt.savefig('Histogram_pressure{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_pressure{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
@@ -2234,24 +2283,24 @@ def plot_pressure_not() -> None:
     plt.ylabel('Probability / mbar', fontsize = 30)
     plt.xticks(fontsize = 25)
     plt.yticks(fontsize = 25)
-    plt.savefig('Histogram_logpressure{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_logpressure{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     #plt.clf()
     #plot_hist(dfff,name_pressure, 1.,'Atmospheric Pressure (hPa)','Probability / hPa', ' hPa',xoff=0., coverage_cut=coverage_cut_for_not)
     ##plt.plot(x,y, color= 'steelblue')
-    #plt.savefig('Hist_pressure{:s}.pdf'.format(tits), bbox_inches='tight')
+    #plt.savefig('{:s}/Hist_pressure{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     #plt.show()
     
     #plt.clf()
     #plot_hist(dfff,name_pressure, 1.,'Atmospheric Pressure (hPa)','Probability / hPa', ' hPa',xoff=0., is_night=True, coverage_cut=coverage_cut_for_not)
     ##plt.plot(x,y, color= 'steelblue')
-    #plt.savefig('Hist_pressure_night{:s}.pdf'.format(tits), bbox_inches='tight')
+    #plt.savefig('{:s}/Hist_pressure_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     #plt.show()
 
     plt.clf()
     plot_mensual(dfff, name_pressure, 'Atmospheric pressure (hPa)')
-    plt.savefig('Pressure_mensual{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_mensual{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -2260,7 +2309,7 @@ def plot_pressure_not() -> None:
     #plt.xlabel('Year')
     #plot_historic_fit_results(dfn,mask,press_lik_median2,is_daily=True, day_coverage=day_coverage_for_pressure,color='red',is_sigma2=False)
     plot_historic_fit_results(dfn,mask,press_lik_median4,is_daily=True, day_coverage=day_coverage_for_pressure,color='red',is_sigma2=True)        
-    plt.savefig('Pressure_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     name_pressure = name_pressure_save
@@ -2356,14 +2405,14 @@ def plot_pressure() -> None:
     plt.xlabel('Year')
     plt.ylabel('Atmospheric Pressure (hPa)')
     press_lik_mean2.plot_residuals()
-    plt.savefig('Pressure_residuals{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plt.xlabel('Year')
     plt.ylabel('Atmospheric Pressure (hPa)')
     press_lik_median2.plot_residuals()
-    plt.savefig('Pressure_residuals2{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals2{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
@@ -2371,7 +2420,7 @@ def plot_pressure() -> None:
     plt.xlabel('Year')
     plt.ylabel('Atmospheric Pressure (hPa)')
     press_lik_median4_offset.plot_residuals(is_sigma2=True)
-    plt.savefig('Pressure_residuals4_offset{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals4_offset{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals_mean2 = press_lik_mean2.red_residuals()
@@ -2405,7 +2454,7 @@ def plot_pressure() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('Pressure_residuals_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     plt.figure()
     fig,a = plt.subplots(1,2)
@@ -2417,12 +2466,13 @@ def plot_pressure() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4_offset),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('Pressure_residuals_hist_offset{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_residuals_hist_offset{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
-    plt.figure()
-    naoi_correlate(df_naoi,press_lik_median2.full_residuals(),color='r')
-    naoi_profile(df_naoi,press_lik_median2.full_residuals(),nbins=12)    
-    plt.savefig('Pressure_corr_d_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
+    if is_naoi:
+        plt.figure()
+        naoi_correlate(df_naoi,press_lik_median2.full_residuals(),color='r')
+        naoi_profile(df_naoi,press_lik_median2.full_residuals(),nbins=12)    
+        plt.savefig('{:s}/Pressure_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
     plt.figure()
     plt.xlabel(r'$b$ (atm. pressure increase) (%/10y)', fontsize = 25)
@@ -2438,14 +2488,14 @@ def plot_pressure() -> None:
     press_lik_median4_offset.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='k')    
     #press_lik_median41.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='tomato')
     #press_lik_median42.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='seagreen')    
-    plt.savefig('Pressure_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     
     
     plt.clf()
     plt.hist(dfff[name_pressure], density = True, bins = 100)
     plt.xlabel('Pressure (mbar)')
     plt.ylabel('Probability / mbar')
-    plt.savefig('Histogram_pressure.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_pressure{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
@@ -2454,24 +2504,24 @@ def plot_pressure() -> None:
     plt.ylabel('Probability / mbar', fontsize = 30)
     plt.xticks(fontsize = 25)
     plt.yticks(fontsize = 25)
-    plt.savefig('Histogram_logpressure.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_logpressure{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plot_hist(dfff, name_pressure, 1.,'Atmospheric Pressure (hPa)','Probability / hPa', ' hPa',xoff=0., coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_pressure.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_pressure{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
     plot_hist(dfff, name_pressure, 1.,'Atmospheric Pressure (hPa)','Probability / hPa', ' hPa',xoff=0., is_night=True, coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_pressure_night.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_pressure_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plot_mensual(dfff, name_pressure, 'Atmospheric pressure (hPa)')
-    plt.savefig('Pressure_mensual.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_mensual{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -2486,7 +2536,7 @@ def plot_pressure() -> None:
                               color='red',is_sigma2=False,is_offset=True,offset=press_lik_median2_offset.res.x[-1])
     #plot_historic_fit_results(dfn,mask1,press_lik_median41,is_daily=True, day_coverage=day_coverage_for_pressure,color='tomato',is_sigma2=True)
     #plot_historic_fit_results(dfn,mask2,press_lik_median42,is_daily=True, day_coverage=day_coverage_for_pressure,color='seagreen',is_sigma2=True)            
-    plt.savefig('Pressure_sencer.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Pressure_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     dfff['Pdiff1'] = dfff[name_pressure].diff(1)
@@ -2522,25 +2572,25 @@ def plot_pressure() -> None:
         plt.clf()
         plot_hist(dfff, var, 0.01,'Pressure change rate (hPa/min)','Probability / (hPa/min)', 'hPa/min', xoff=0.08, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'.pdf', bbox_inches='tight')
+        plt.savefig(resultdir+'/Hist_'+var+'.pdf', bbox_inches='tight')
         plt.show()
 
         plt.clf()
         plot_hist(dfff, var, 0.01,'Pressure change rate (hPa/min)','Probability / (hPa/min)', 'hPa/min', xoff=0.08, is_night=True, coverage_cut=coverage_cut)
         #plt.plot(x,y, color= 'steelblue')
-        plt.savefig('Hist_'+var+'_night.pdf', bbox_inches='tight')
+        plt.savefig(resultdir+'/Hist_'+var+'_night.pdf', bbox_inches='tight')
         plt.show()
         
         plt.clf()
         plot_mensual(dfff, var, 'Pressure change rate (hPa/min)')
-        plt.savefig(var+'_mensual.pdf', bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_mensual.pdf', bbox_inches='tight')
         plt.show()
     
         plt.figure(figsize = (10,5), constrained_layout = True)
         plot_historic(dfff, var, coverage)
         #plt.xlabel('Year')
         plt.ylabel('Pressure change rate (hPa/min)')
-        plt.savefig(var+'_sencer.pdf', bbox_inches='tight')
+        plt.savefig(resultdir+'/'+var+'_sencer.pdf', bbox_inches='tight')
         plt.show()
 
     dffff = Filtre_Temperatures(dfff)
@@ -2553,21 +2603,21 @@ def plot_pressure() -> None:
     plt.plot(dffff.loc[maskTvsP,'Pgradient1R'], dffff.loc[maskTvsP,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Pressure change rate (hPa/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient_vs_Pgradient.png', bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient_vs_Pgradient{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskStorm,'Pgradient1R'], dffff.loc[maskStorm,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Pressure change rate (hPa/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Pgradient1_storm.png', bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Pgradient1_storm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskNoStorm,'Pgradient1R'], dffff.loc[maskNoStorm,'Tgradient1R'],'ro',linestyle='None')
     plt.xlabel('Pressure change rate (hPa/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient1_vs_Pgradient1_nostorm.png', bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient1_vs_Pgradient1_nostorm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     maskTvsP = (((dffff['Pgradient5R'] > 0.01) | (dffff['Pgradient5R'] < -0.01)) & ((dffff['Tgradient5R'] > 0.01) | (dffff['Tgradient5R'] < -0.01)))
@@ -2578,28 +2628,28 @@ def plot_pressure() -> None:
     plt.plot(dffff.loc[maskTvsP,'Pgradient5R'], dffff.loc[maskTvsP,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Pressure change rate (hPa/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Pgradient5.png', bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Pgradient5{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskStorm,'Pgradient5R'], dffff.loc[maskStorm,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Pressure change rate (hPa/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Pgradient5_storm.png', bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Pgradient5_storm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.plot(dffff.loc[maskNoStorm,'Pgradient5R'], dffff.loc[maskNoStorm,'Tgradient5R'],'ro',linestyle='None')
     plt.xlabel('Pressure change rate (hPa/min)')
     plt.ylabel('Temperature change rate (ºC/min)')
-    plt.savefig('Tgradient5_vs_Pgradient5_nostorm.png', bbox_inches='tight')
+    plt.savefig('{:s}/Tgradient5_vs_Pgradient5_nostorm{:s}.png'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     
 def plot_wind() -> None:
 
     is_offset = True
-    tits = ''
+    tits = '_2024'
     
     print ('wind binning: ', wind_binning)
     
@@ -2621,12 +2671,10 @@ def plot_wind() -> None:
     plt.figure(figsize = (10,5), constrained_layout = True)
     plt.xlabel('Wind Direction Average (deg.)')
     plt.hist(dfff[name_wdir_average])
-    plt.savefig('WindDirectionAverage.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/WindDirectionAverage{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     day_coverage_for_windSpeedAverage = 70
-    tits = ''
-
     alisio_limit = 50
     
     mask = (dfn[name_ws_average]<alisio_limit)  # select only Alisio winds
@@ -2684,14 +2732,14 @@ def plot_wind() -> None:
     plt.xlabel('Year')
     plt.ylabel('Wind Speed Average (km/h)')
     wind_lik_mean.plot_residuals()
-    plt.savefig('WindSpeed_residuals{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_residuals{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
     plt.xlabel('Year')
     plt.ylabel('Wind Speed Average (km/h)')
     wind_lik_mean2.plot_residuals()
-    plt.savefig('WindSpeed_residuals2{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_residuals2{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     residuals_mean = wind_lik_mean.red_residuals()
@@ -2717,7 +2765,7 @@ def plot_wind() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median2),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('WindSpeed_residuals2_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_residuals2_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
     plt.figure()
     fig,a = plt.subplots(1,2)
@@ -2729,12 +2777,12 @@ def plot_wind() -> None:
     a[1].set_yscale('log')
     a[1].text(6,1000.,r'$\chi^{2}/NDF$='+'{:.2f}'.format(chi2_measured_median4),fontsize=20)
     a[1].legend(loc='best')    
-    plt.savefig('WindSpeed_residuals4_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_residuals4_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
 
-    plt.figure()
-    naoi_correlate(df_naoi,wind_lik_mean.full_residuals(),color='r')
-    naoi_profile(df_naoi,wind_lik_mean.full_residuals(),nbins=12)    
-    plt.savefig('WindSpeed_corr_d_NAOI{:s}.pdf'.format(tits),bbox_inches='tight')
+    #plt.figure()
+    #naoi_correlate(df_naoi,wind_lik_mean.full_residuals(),color='r')
+    #naoi_profile(df_naoi,wind_lik_mean.full_residuals(),nbins=12)    
+    #plt.savefig('{:s}/WindSpeed_corr_d_NAOI{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
 
 
     # Profile the wind increase parameter now
@@ -2753,38 +2801,38 @@ def plot_wind() -> None:
     if (is_offset):
         wind_lik_median2_offset.profile_likelihood(1,chi2=chi2,NN=NN,method=method,col='cyan',alpha=0.2)
         tits = tits + '_offset'                
-    plt.savefig('WindSpeed_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_b_profiled{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     tits = tits.replace('_offset','')    
     
     #Distribucions del vent
     plt.clf()
     plot_hist(dfff, name_ws_current, 1.,'Instantaneous wind speed (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_windSpeed.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_windSpeed.pdf{:s}'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plot_hist(dfff, name_ws_current, 1.,'Instantaneous wind speed (km/h)','Probability / (km/h)', ' km/h', xoff=0.,loc='right',is_night=True, coverage_cut=coverage_cut)
     #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_windSpeed_night.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Hist_windSpeed_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.hist(dfff[name_ws_current], bins = 100, log = 'True')
     plt.xlabel('Wind Speed (km/h)')
-    plt.savefig('Histogram_windSpeed.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_windSpeed{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
     plt.hist(dfff[name_ws_average], bins = 100)
     plt.xlabel('Wind Speed Average (km/h)')
-    plt.savefig('Histogram_windAverage.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_windAverage{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
         
     plt.clf()
     plt.plot(dfff.index, dfff[name_ws_average])
     plt.xlabel('Wind Speed Average (km/h)')
-    plt.savefig('Histogram_windAverage_vsTime.png', bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_windAverage_vsTime{:s}.png'.format(tits), bbox_inches='tight')
     plt.show()
         
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -2801,14 +2849,14 @@ def plot_wind() -> None:
     plt.text(v50,5e-3,'1/50y',fontsize=15,color='cadetblue')
     plt.text(v475,5e-4,'1/475y',fontsize=15,color='darkslategrey')
     plt.legend(loc='best', fontsize=18)
-    plt.savefig('Histogram_windGust.pdf', bbox_inches='tight')
+    plt.savefig('Histogram_windGust.pdf{:s}'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure()    
     plot_mensual_wind(dfff,fullfits=False) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('WindSpeed_mensual.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_mensual.pdf{:s}'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -2821,7 +2869,7 @@ def plot_wind() -> None:
     plt.xlabel('Wind Speed Average (km/h)')
     plt.ylabel('Turbulence Index',fontsize=22)
     plt.legend(loc='best')
-    plt.savefig('WindTI_corr_WindSpeed.pdf',bbox_inches='tight')
+    plt.savefig('{:s}/WindTI_corr_WindSpeed{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     mask_ti_s = ((dfff[name_ws_current] > 0.) & (dfff.index > WS_relocation) & (dfff[name_ws_average]>20.))   
@@ -2849,34 +2897,34 @@ def plot_wind() -> None:
     plt.ylim([-0.25,1.5])
     plt.xlim([0.,360.])
     plt.legend(loc='best')
-    plt.savefig('WindTInorm_corr_WindDir.pdf',bbox_inches='tight')
+    plt.savefig('{:s}/WindTInorm_corr_WindDir{:s}.pdf'.format(resultdir,tits),bbox_inches='tight')
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     mask_ti = ((dfff[name_ws_current] > 0.) & (dfff.index > WS_relocation))
     h,p = plot_profile(dfff.loc[mask_ti,'windTI'],dfff.loc[mask_ti,name_wdir_current],nbins=50)
     plt.xlabel('Turbulence Index',fontsize=22)
     plt.ylabel('Wind Direction',fontsize=22)
-    plt.savefig('WindTI_corr_WindDir.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/WindTI_corr_WindDir{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     mask_ti = ((dfff[name_ws_current] > 0.) & (dfff.index > WS_relocation))
     h,p = plot_profile(dfff.loc[mask_ti,name_ws_average],dfff.loc[mask_ti,name_wdir_current],nbins=50)
     plt.xlabel('Wind Speed Average (km/h)')
     plt.ylabel('Wind Direction',fontsize=22)
-    plt.savefig('WindDir_corr_WindSpeed.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/WindDir_corr_WindSpeed{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     
     plt.figure()    
     plot_mensual(dfff[mask_ti],'windTI',ytit='Turbulence Index') #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('WindTI_mensual.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/WindTI_mensual{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_historic(dfff[mask_ti], 'windTI', coverage)
     #plt.xlabel('Year')
     plt.ylabel('Turbulence Index')
-    plt.savefig('WindTI_sencer.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/WindTI_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -2891,7 +2939,7 @@ def plot_wind() -> None:
         plot_historic_fit_results(dfn,mask,wind_lik_median4,is_daily=True, day_coverage=day_coverage_for_windSpeedAverage,color='red',is_sigma2=True)    
     #plt.xlabel('Year')
     plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('WindSpeed_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/WindSpeed_sencer{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     tits = tits.replace('_offset','')    
 
@@ -2907,14 +2955,14 @@ def plot_wind() -> None:
     mask_ti = ((dfn[name_ws_current] > 0.) & (dfn.index > WS_relocation))
     plot_windrose(dfn[mask_ti],'windTI',name_wdir_current,
                   'Turbulence Index, full sample',pw=pw_ti,leg_tit='TI',form='.3f',min_scale=0.)
-    plt.savefig('windrose_TI_normal.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_TI_normal{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure()
     mask_ws = ((dfn[name_ws_current] > 0.) & (dfn.index > WS_relocation))    
     plot_windrose(dfn[mask_ws],name_ws_current,name_wdir_current,
                   'Instantaneous wind speed, full sample',pw=pw_full)
-    plt.savefig('windrose_normal.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_normal{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
@@ -2922,7 +2970,7 @@ def plot_wind() -> None:
     df_fort = dfn[dfn[name_ws_current] > alisio_limit]
     plot_windrose(df_fort,name_ws_current,name_wdir_current,
                   'Instantaneous wind speed > {:d} km/h'.format(alisio_limit), pw=pw_strong)
-    plt.savefig('windrose_extrem.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_extrem{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
@@ -2930,7 +2978,7 @@ def plot_wind() -> None:
     plot_windrose(df_fort,'windTI',name_wdir_current,
                   'Instantaneous wind speed > {:d} km/h'.format(alisio_limit), pw=pw_ti_strong,
                   leg_tit='TI',form='.3f',min_scale=0.1)
-    plt.savefig('windrose_TI_extrem.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_TI_extrem{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     dfn = dfff[((dfff['coverage'] > coverage_cut) & (dfff['sun_alt'] < -12.) & (dfff[name_ws_current] > 0.))]
@@ -2939,13 +2987,13 @@ def plot_wind() -> None:
     mask_ti = ((dfn[name_ws_current] > 0.)  & (dfn.index > WS_relocation))
     plot_windrose(dfn[mask_ti],'windTI',name_wdir_current,
                   'Turbulence Index, full sample',pw=pw_ti,leg_tit='TI',form='.3f',min_scale=0.)
-    plt.savefig('windrose_TI_night.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_TI_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
     plot_windrose(dfn,name_ws_current,name_wdir_current,
                   'Instantaneous wind speed, night time only',pw=pw_full)
-    plt.savefig('windrose_normal_night.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_normal_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
@@ -2953,7 +3001,7 @@ def plot_wind() -> None:
     df_fort = dfn[dfn[name_ws_current] > ws_min]
     plot_windrose(df_fort,name_ws_current,name_wdir_current,
                   'Instantaneous wind speed > {:d} km/h, night time only'.format(ws_min),pw=pw_strong)
-    plt.savefig('windrose_extrem_night.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/windrose_extrem_night{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
@@ -2985,7 +3033,7 @@ def plot_huracans() -> None:
     #ax.xaxis.set_major_locator(mdates.MonthLocator())
     #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.xticks(np.arange(1,13), months_n,ha='center')
-    plt.savefig('Gaps_days.pdf')
+    plt.savefig('{:s}/Gaps_days.pdf')
     plt.show()
 
     plt.clf()
@@ -2995,7 +3043,7 @@ def plot_huracans() -> None:
         for m in months:
             Storms.append(extremes_month(dfff,name_ws_gust, test_cut, m, year_start, year_end))
         plt.plot(months, np.array(Storms), marker = 'o', linestyle = 'none', markersize = 10, markeredgecolor = 'k', 
-                 label='threshold={:d} km/h'.format(test_cut))  # markerfacecolor = 'white', 
+                 label='threshold={:d} km/h'.format(resultdir,test_cut))  # markerfacecolor = 'white', 
     #plt.xlabel('Month', fontsize=20)
     plt.ylabel('Number of storms exceeding threshold', fontsize=20)
     plt.legend(loc='best', fontsize=18)
@@ -3005,7 +3053,7 @@ def plot_huracans() -> None:
     #ax.xaxis.set_major_locator(mdates.MonthLocator())
     #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.xticks(np.arange(1,13), months_n,ha='center')
-    plt.savefig('Mensual_storms_all.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Mensual_storms_all{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
@@ -3025,35 +3073,35 @@ def plot_huracans() -> None:
     #ax.xaxis.set_major_locator(mdates.MonthLocator())
     #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.xticks(years, years,ha='center')
-    plt.savefig('Yearly_weights.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/Yearly_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     test_cut = 115
     k = np.array(extremes(dfff, name_ws_gust, test_cut, year_start, year_end))
     plot_profile_likelihood(k)
     plt.title('Wind Gust threshold: {:d} km/h'.format(test_cut), fontsize=20)
-    plt.savefig('likelihood_cut_{:d}.pdf'.format(test_cut), bbox_inches='tight')
+    plt.savefig('{:s}/likelihood_cut_{:d}{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
     plt.show()           
 
     weights_for_p0 = np.array(calc_all_weights(dfff,name_ws_gust,test_cut, year_start, year_end))
 
     plot_profile_likelihood(k,weights_for_p0)
     plt.title('Wind Gust threshold: {:d} km/h'.format(test_cut), fontsize=20)
-    plt.savefig('likelihood_cut_{:d}_weights.pdf'.format(test_cut), bbox_inches='tight')
+    plt.savefig('{:s}/likelihood_cut_{:d}_weights{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
     plt.show()           
     
     test_cut = 100
     k = np.array(extremes(dfff, name_ws_gust, test_cut, year_start, year_end))
     plot_profile_likelihood(k)
     plt.title('Wind Gust threshold: {:d} km/h'.format(test_cut), fontsize=20)
-    plt.savefig('likelihood_cut_{:d}.pdf'.format(test_cut), bbox_inches='tight')
+    plt.savefig('{:s}/likelihood_cut_{:d}{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
     plt.show()           
 
     weights_for_p0 = np.array(calc_all_weights(dfff,name_ws_gust,test_cut, year_start, year_end))
     
     plot_profile_likelihood(k,weights_for_p0)
     plt.title('Wind Gust threshold: {:d} km/h'.format(test_cut), fontsize=20)
-    plt.savefig('likelihood_cut_{:d}_weights.pdf'.format(test_cut), bbox_inches='tight')
+    plt.savefig('{:s}/likelihood_cut_{:d}_weights{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
     plt.show()           
 
     print ('FINSIHED LIKELIHOOD')
@@ -3064,7 +3112,7 @@ def plot_huracans() -> None:
         k = extremes(dfff, name_ws_gust, cut, year_start, year_end)
         plot_extremes(k, year_start, year_end,weights)
         plt.ylabel('Number of storms exceeding {:d} km/h'.format(cut), fontsize = 20)
-        plt.savefig('Huracans_cut_{:d}.pdf'.format(cut), bbox_inches='tight')
+        plt.savefig('{:s}/Huracans_cut_{:d}{:s}.pdf'.format(resultdir,cut,tits), bbox_inches='tight')
         plt.show()                   
             
     TSs, p0s, alphas, alphas_sup1, alphas_inf1, alphas_sup2, alphas_inf2 = [], [], [], [], [], [], []
@@ -3097,7 +3145,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('alphas.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/alphas{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3110,7 +3158,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('alphas_rel.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/alphas{:s}_rel..format(resultdir,tits)pdf', bbox_inches='tight')
     plt.show()
     
     
@@ -3121,7 +3169,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('TSs.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/TSs{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3131,7 +3179,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('p0s.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/p0s{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
             
     TSs, p0s, alphas, alphas_sup1, alphas_inf1, alphas_sup2, alphas_inf2 = [], [], [], [], [], [], []
@@ -3160,7 +3208,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('alphas_weights.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/alphas_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3173,7 +3221,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('alphas_rel_weights.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/alphas_rel_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     
@@ -3184,7 +3232,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('TSs_weights.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/TSs_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3194,7 +3242,7 @@ def plot_huracans() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('p0s_weights.pdf', bbox_inches='tight')
+    plt.savefig('{:s}/p0s_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
             
 
@@ -3213,24 +3261,24 @@ def plot_snow() -> None:
         
     plt.clf()
     plt.plot(dfff['WB'],dfff['WBD'])
-    plt.savefig('Histogram_WB2.png')
+    plt.savefig('{:s}/Histogram_WB2{:s}.png'.format(resultdir,tits))
 
     plt.clf()
     plt.hist(Tmin(dfff['humidity']))
-    plt.savefig('Histogram_Tmin.pdf')
+    plt.savefig('{:s}/Histogram_Tmin{:s}.pdf'.format(resultdir,tits))
 
     plt.clf()
     plt.plot(dfff['temperature'],dfff['WB']-Tmin(dfff['humidity']),color='b')
     plt.plot(dfff['temperature'],dfff['WB']-Tmax(dfff['humidity']),color='r')
     plt.plot(dfff['temperature'],dfff['WBD']-Tmin(dfff['humidity']),color='indigo')
     plt.plot(dfff['temperature'],dfff['WBD']-Tmax(dfff['humidity']),color='orange')
-    plt.savefig('Histogram_WB-Tmin.png')
+    plt.savefig('{:s}/Histogram_WB-Tmin{:s}.png'.format(resultdir,tits))
 
     plt.clf()
     plt.plot(dfff['temperature'],dfff['WB'], color='g')
     plt.plot(dfff['temperature'],Tmin(dfff['humidity']), color='b')
     plt.plot(dfff['temperature'],Tmax(dfff['humidity']), color='r')
-    plt.savefig('Histogram_WB.png')
+    plt.savefig('{:s}/Histogram_WB{:s}.png'.format(resultdir,tits))
 
         
     dfff, coverage = apply_coverage(dfff,debug=False)
@@ -3274,7 +3322,7 @@ def plot_snow() -> None:
     ax[1].yaxis.set_tick_params(labelsize=18)
     ax[0].xaxis.set_tick_params(labelsize=15)    
     plt.xticks(years, years,ha='center')
-    plt.savefig('Length_hours_snow{:s}.pdf'.format(tits))
+    plt.savefig('{:s}/Length_hours_snow{:s}.pdf'.format(resultdir,tits))
     plt.show()
 
     plt.clf()
@@ -3299,7 +3347,7 @@ def plot_snow() -> None:
     ax[1].yaxis.set_tick_params(labelsize=18)
     ax[0].xaxis.set_tick_params(labelsize=15)    
     plt.xticks(years, years,ha='center')
-    plt.savefig('Length_hours_sleet{:s}.pdf'.format(tits))
+    plt.savefig('{:s}/Length_hours_sleet{:s}.pdf'.format(resultdir,tits))
     plt.show()
 
 def plot_rainy_periods() -> None:
@@ -3345,7 +3393,7 @@ def plot_rainy_periods() -> None:
     print ('COUNTING EXTREMES')
     
     for y in years:
-        length_arr = count_extremes_length(dfff, 'humidity',y, 90, False)
+        length_arr = count_extremes_length(dfff,name_humidity,y, 90, False)
         if (len(length_arr)>1):
             arr = np.array(length_arr)
             ax[0].violinplot(arr[arr<3], positions=[y])
@@ -3417,7 +3465,7 @@ def plot_rainy_periods() -> None:
     ax[1].yaxis.set_tick_params(labelsize=18)
     ax[0].xaxis.set_tick_params(labelsize=15)    
     plt.xticks(years, years,ha='center')
-    plt.savefig('Length_hours_rains{:s}.pdf'.format(tits))
+    plt.savefig('{:s}/Length_hours_rains{:s}.pdf'.format(resultdir,tits))
     plt.show()
 
     sun_bins = 9
@@ -3427,7 +3475,7 @@ def plot_rainy_periods() -> None:
                           hum_threshold=90, lengthcut=3, direction='<',nbins=sun_bins,join_months=True, weights=None) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_hours_rains_month_sun_short{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_hours_rains_month_sun_short{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3437,7 +3485,7 @@ def plot_rainy_periods() -> None:
                           hum_threshold=90, lengthcut=3, direction='<',nbins=sun_bins,join_months=True, weights=weights) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_hours_rains_month_sun_short_weights{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_hours_rains_month_sun_short_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3445,7 +3493,7 @@ def plot_rainy_periods() -> None:
                           hum_threshold=90, lengthcut=3, direction='<',nbins=sun_bins,join_months=True, weights=weights,plot_tot=True) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_tothours_rains_month_sun_short_weights{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_tothours_rains_month_sun_short_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3454,7 +3502,7 @@ def plot_rainy_periods() -> None:
                           hum_threshold=90, lengthcut=3, direction='>',nbins=sun_bins,join_months=True) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_hours_rains_month_sun_long{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_hours_rains_month_sun_long{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3464,7 +3512,7 @@ def plot_rainy_periods() -> None:
                           hum_threshold=90, lengthcut=3, direction='>',nbins=sun_bins,join_months=True, weights=weights) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_hours_rains_month_sun_long_weights{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_hours_rains_month_sun_long_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3472,7 +3520,7 @@ def plot_rainy_periods() -> None:
                           hum_threshold=90, lengthcut=3, direction='>',nbins=sun_bins,join_months=True, weights=weights, plot_tot=True) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_tothours_rains_month_sun_long_weights{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_tothours_rains_month_sun_long_weights{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3482,7 +3530,7 @@ def plot_rainy_periods() -> None:
     #plot_mensual_rain(dfff[mask_sleet], 'humidity', hum_threshold=90,color1='firebrick',color2='lightcoral',ax=ax,ax2=ax2) #, name_ws_current)
     #plt.xlabel('Month')
     #plt.ylabel('Wind Speed (km/h)')
-    plt.savefig('Length_hours_rains_month{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_hours_rains_month{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     #months = np.arange(1,13)    
@@ -3502,7 +3550,7 @@ def plot_rainy_periods() -> None:
     #ax[1].yaxis.set_tick_params(labelsize=18)
     #ax[0].xaxis.set_tick_params(labelsize=15)    
     #plt.xticks(months, months_n,ha='center')
-    #plt.savefig('Length_hours_rains_month.pdf')
+    #plt.savefig('{:s}/Length_hours_rains_month.pdf')
     #plt.show()
 
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -3519,7 +3567,7 @@ def plot_rainy_periods() -> None:
     handles, labels = plt.gca().get_legend_handles_labels()
     new_handles = [Line2D([], [], c=h.get_edgecolor()) for h in handles]
     plt.legend(handles=new_handles, labels=labels,loc='best')
-    plt.savefig('Length_hours_rains_hist{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('Length_hours_rains_hist{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.figure(figsize = (10,5), constrained_layout = True)
@@ -3539,7 +3587,7 @@ def plot_rainy_periods() -> None:
     handles, labels = plt.gca().get_legend_handles_labels()
     new_handles = [Line2D([], [], c=h.get_edgecolor()) for h in handles]
     plt.legend(handles=new_handles, labels=labels,loc='upper left')
-    plt.savefig('Length_hours_rains_hist_duration{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Length_hours_rains_hist_duration{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     gaps   = []
@@ -3558,7 +3606,7 @@ def plot_rainy_periods() -> None:
     #ax.xaxis.set_major_locator(mdates.MonthLocator())
     #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.xticks(np.arange(1,13), months_n,ha='center')
-    plt.savefig('Gaps_days_rains{:s}.pdf'.format(tits))
+    plt.savefig('{:s}/Gaps_days_rains{:s}.pdf'.format(resultdir,tits))
     plt.show()
 
     plt.clf()
@@ -3578,7 +3626,7 @@ def plot_rainy_periods() -> None:
     #ax.xaxis.set_major_locator(mdates.MonthLocator())
     #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.xticks(np.arange(1,13), months_n,ha='center')
-    plt.savefig('Mensual_rains_all{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Mensual_rains_all{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     plt.clf()
@@ -3598,7 +3646,7 @@ def plot_rainy_periods() -> None:
     #ax.xaxis.set_major_locator(mdates.MonthLocator())
     #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
     plt.xticks(years, years,ha='center')
-    plt.savefig('Yearly_weights_rains{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Yearly_weights_rains{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
     for test_cut in [98, 95, 90, 80]:
@@ -3609,7 +3657,7 @@ def plot_rainy_periods() -> None:
         
         plot_profile_likelihood(k)
         #plt.title('Relative humidity threshold: {:d} (%)'.format(test_cut), fontsize=20)
-        plt.savefig('likelihood_cut_{:d}_rains_long{:s}.pdf'.format(test_cut,tits), bbox_inches='tight')
+        plt.savefig('{:s}/likelihood_cut_{:d}_rains_long{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
         plt.show()           
         
         weights_for_p0 = np.array(calc_all_weights(dfff,'humidity', test_cut,
@@ -3618,7 +3666,7 @@ def plot_rainy_periods() -> None:
         print ('years', years, ' Weights LONG', weights_for_p0)
         plot_profile_likelihood(k,weights_for_p0)
         #plt.title('Relative humidity threshold: {:d} (%)'.format(test_cut), fontsize=20)
-        plt.savefig('likelihood_cut_{:d}_weights_rains_long{:s}.pdf'.format(test_cut,tits), bbox_inches='tight')
+        plt.savefig('{:s}/likelihood_cut_{:d}_weights_rains_long{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
         plt.show()           
         
         k = np.array(extremes_with_lengthcut(dfff, 'humidity', test_cut, year_start, year_end,3,'<'))
@@ -3627,7 +3675,7 @@ def plot_rainy_periods() -> None:
         
         plot_profile_likelihood(k)
         #plt.title('Relative humidity threshold: {:d} (%)'.format(test_cut), fontsize=20)
-        plt.savefig('likelihood_cut_{:d}_rains_short{:s}.pdf'.format(test_cut,tits), bbox_inches='tight')
+        plt.savefig('{:s}/likelihood_cut_{:d}_rains_short{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
         plt.show()           
         
         weights_for_p0 = np.array(calc_all_weights(dfff,'humidity', test_cut,
@@ -3636,7 +3684,7 @@ def plot_rainy_periods() -> None:
         print ('years', years, ' Weights SHORT', weights_for_p0)        
         plot_profile_likelihood(k,weights_for_p0)
         #plt.title('Relative humidity threshold: {:d} (%)'.format(test_cut), fontsize=20)
-        plt.savefig('likelihood_cut_{:d}_weights_rains_short{:s}.pdf'.format(test_cut,tits), bbox_inches='tight')
+        plt.savefig('{:s}/likelihood_cut_{:d}_weights_rains_short{:s}.pdf'.format(resultdir,test_cut,tits), bbox_inches='tight')
         plt.show()           
         
 
@@ -3650,7 +3698,7 @@ def plot_rainy_periods() -> None:
         k = extremes_with_lengthcut(dfff, 'humidity', cut, year_start, year_end,lengthcut=3, direction='>')
         plot_extremes(k, year_start, year_end, weights)
         plt.ylabel('Number of periods exceeding humidity threshold of {:d} %'.format(cut), fontsize = 20)
-        plt.savefig('Rains_cut_{:d}_long{:s}.pdf'.format(cut,tits), bbox_inches='tight')
+        plt.savefig('{:s}/Rains_cut_{:d}_long{:s}.pdf'.format(resultdir,cut,tits), bbox_inches='tight')
         plt.show()                   
             
     for cut in cuts:
@@ -3659,7 +3707,7 @@ def plot_rainy_periods() -> None:
         k = extremes_with_lengthcut(dfff, 'humidity', cut, year_start, year_end,lengthcut=3, direction='<')
         plot_extremes(k, year_start, year_end,weights)
         plt.ylabel('Number of periods exceeding humidity threshold of {:d} %'.format(cut), fontsize = 20)
-        plt.savefig('Rains_cut_{:d}_short{:s}.pdf'.format(cut,tits), bbox_inches='tight')
+        plt.savefig('{:s}/Rains_cut_{:d}_short{:s}.pdf'.format(resultdir,cut,tits), bbox_inches='tight')
         plt.show()                   
             
     TSs, p0s, alphas, alphas_sup1, alphas_inf1, alphas_sup2, alphas_inf2 = [], [], [], [], [], [], []
@@ -3692,7 +3740,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('alphas_rains_short{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/alphas_rains_short{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3705,7 +3753,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('alphas_rel_rains_short{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/alphas_rel_rains_short{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     
@@ -3716,7 +3764,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('TSs_rains_short{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TSs_rains_short{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3726,7 +3774,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('p0s_rains_short{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/p0s_rains_short{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
 
 
@@ -3760,7 +3808,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('alphas_rains_long{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/alphas_rains_long{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3773,7 +3821,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('alphas_rel_rains_long{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/alphas_rel_rains_long{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     
@@ -3784,7 +3832,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('TSs_rains_long{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TSs_rains_long{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3794,7 +3842,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('p0s_rains_long{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/p0s_rains_long{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
             
     TSs, p0s, alphas, alphas_sup1, alphas_inf1, alphas_sup2, alphas_inf2 = [], [], [], [], [], [], []
@@ -3839,7 +3887,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('alphas_weights_rains{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/alphas_weights_rains{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3852,7 +3900,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('alphas_rel_weights_rains{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/alphas_rel_weights_rains{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     
@@ -3863,7 +3911,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=20)
     ax.xaxis.set_tick_params(labelsize=20)
-    plt.savefig('TSs_weights_rains{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/TSs_weights_rains{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
     
     plt.clf()
@@ -3873,7 +3921,7 @@ def plot_rainy_periods() -> None:
     ax = plt.gca()
     ax.yaxis.set_tick_params(labelsize=26)
     ax.xaxis.set_tick_params(labelsize=26)
-    plt.savefig('p0s_weights_rains{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/p0s_weights_rains{:s}.pdf'.format(resultdir,tits), bbox_inches='tight')
     plt.show()
             
 
@@ -3893,7 +3941,8 @@ if __name__ == '__main__':
 
     #plot_datacount()
     #plot_downtime()
-    plot_temperature()
+    #plot_temperature()
+    #plot_DP()
     #plot_DTR()
     #plot_temperature_not()
     #plot_snow()
@@ -3902,6 +3951,6 @@ if __name__ == '__main__':
     #plot_humidity_not()
     #plot_pressure_not()
     #plot_pressure()    
-    #plot_wind()
+    plot_wind()
     #plot_huracans()
 
