@@ -81,12 +81,12 @@ def NightLengths_hour(year,sun_horizon=-18,moon_horizon=0,max_moon_phase=0.95*18
     return L
 
         
-def AltAzSun(df):
+def AltAzSun(df, lon=-17.8907 * u.deg, lat= 28.7619 * u.deg):
     dates = df.index
     Alt_sun = []
     Az_sun = []
 
-    Roque_Muchachos = coord.EarthLocation(lon = -17.8907 * u.deg, lat = 28.7619 * u.deg)
+    Roque_Muchachos = coord.EarthLocation(lon = lon, lat = lat)
     my_time = Time(dates)
     sun = coord.get_sun(my_time)
     altaz = coord.AltAz(location=Roque_Muchachos, obstime=my_time)
