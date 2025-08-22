@@ -15,9 +15,10 @@ import matplotlib.dates as mdates
 from datetime import datetime
 from scipy.stats import pearsonr, spearmanr, kendalltau
 from scipy.stats import median_abs_deviation as mad
-from coverage_helper import expected_data_per_day
-from plot_helper import ynums, WS_exchange_dates
+from scipy.optimize import curve_fit
 
+#from coverage_helper import expected_data_per_day
+from plot_helper import WS_exchange_dates
 
 
 def not_read(not_file, start_date='2003-01-01 00:00:01'):
@@ -52,11 +53,11 @@ def not_profile(df_not, df_x, nbins=50,minimum=None, maximum=None):
     
     df = pd.DataFrame({'x' : df_not , 'y' : df_x})
 
-    #print ('NOT HERE: ',df.head())
-
     mask = (df['x'].notnull() & (df['y'].notnull()))
     df = df[mask]
     
+    print ('NOT HERE: ',df.head())
+
     # multiplication needed because later np.digitize has no option 'rightandleft'
     if not minimum:
         minimum = df_not.min()#.values.astype(float)
@@ -69,29 +70,48 @@ def not_profile(df_not, df_x, nbins=50,minimum=None, maximum=None):
 
     bin_edges = np.squeeze(np.linspace(minimum,maximum, nbins+1))
 
-    #bin_edges = bin_edges[0]
+    print ('bin_edges', bin_edges)
+    
     bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
     df['bin'] = np.digitize(df['x'], bins=bin_edges)
     binned = df.groupby('bin')
 
+    bins_add = np.empty(0)
+    len_y = len(binned['y'].agg('max'))
+    if len_y < len(bin_centers):
+        add_bins = len(bin_centers)-len_y
+        print ('add ',add_bins,' to binned[y]')
+        bins_add = np.empty(add_bins)
+        
     mask = binned['y'].agg('median').notnull()
+    print ('mask', mask)    
+
+    medians = np.concatenate([np.array(binned['y'].agg('median')),bins_add])
+
+    fit_end = len_y-4
+    print ('Gust Fitting: ',bin_centers[:fit_end],medians[:fit_end])
+    popt, pcov = curve_fit(lambda x,*p: p[0]*x, bin_centers[:fit_end],medians[:fit_end], p0=[0.8])
+
+    print ('Popt: ',popt,  ' pcov: ', pcov)
     
-    plt.plot(bin_centers,binned['y'].agg('max'),
+    plt.plot(bin_centers,np.concatenate([np.array(binned['y'].agg('max')),bins_add]),
              color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k')
-    plt.plot(bin_centers,binned['y'].agg('median'),
+    plt.plot(bin_centers[:fit_end],popt[0]*bin_centers[:fit_end],'--',lw=2,label=r'y=({:.2f}$\pm${:.2f})$\cdot$x'.format(popt[0],np.sqrt(pcov[0,0])),color='k')
+    
+    plt.plot(bin_centers,medians,
              color = 'steelblue', marker = 'o', markerfacecolor = 'white', markeredgecolor = 'k')
     plt.fill_between(bin_centers,
-                     binned['y'].agg('median')+binned['y'].agg(lambda x: mad(x)),
-                     binned['y'].agg('median')-binned['y'].agg(lambda x: mad(x)),                     
+                     np.concatenate([np.array(binned['y'].agg('median')+binned['y'].agg(lambda x: mad(x))),bins_add]),
+                     np.concatenate([np.array(binned['y'].agg('median')-binned['y'].agg(lambda x: mad(x))),bins_add]),                     
                      alpha = 0.3)
-    plt.plot(bin_centers,binned['y'].agg('min'),
+    plt.plot(bin_centers,np.concatenate([np.array(binned['y'].agg('min')),bins_add]),
              color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k')    
 
     plt.xlabel('NOT')
     plt.legend(loc='best')
 
 
-def not_profile_time(df_not, df_x, arg_not, arg, day_coverage=85, print_threshold=None, plot_exchange_dates=True):
+def not_profile_time(df_not, df_x, arg_not, arg, expected_data_per_day, ynums, day_coverage=85, print_threshold=None, plot_exchange_dates=True):
 
     #mask = df_not.notnull()
     df_tmp = df_x['mjd'].resample('D',offset='12h').mean().dropna()
