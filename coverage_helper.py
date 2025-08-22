@@ -13,10 +13,7 @@ import numpy as np
 from month_helper import monthlen
 import timeit, functools
 
-data_spacing_minutes = 2
-expected_data_per_day = 60*24/data_spacing_minutes
-
-def apply_coverage(df, data_spacing=data_spacing_minutes, debug=False, fulldebug=False):
+def apply_coverage(df, data_spacing, debug=False, fulldebug=False):
     '''
     Add a new column to df containing the data coverage (in percent) of the corresponding month
 
