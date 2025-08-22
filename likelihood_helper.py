@@ -22,7 +22,7 @@ from functools import partial
 from statsmodels.base.model import GenericLikelihoodModel
 from statsmodels.tsa.seasonal import STL
 #from plot_helper import mjd_corrector, mjd_start_2003, number_days_year
-from coverage_helper import expected_data_per_day
+#from coverage_helper import expected_data_per_day
 
 mjd_corrector  = 55000   # used to bring back all mjd to precision required with a float data member
 mjd_start_2003 = 52640   # MJD of 1/1/2003
@@ -90,6 +90,38 @@ def mu(p,m,verb=False):
     # significance of a as mean temperature, see also
     # https://www.wolframalpha.com/input?i=calculate+the+mean+value+of+%281%2Bcos%28x%29%29%5E2+from+0+to+2pi
     return a + b * m + C*(0.5*((np.cos(omega*(m-phimu))+1)**2) - 0.75)
+    
+def mu_sq(p,m,verb=False):
+    '''
+    Montly temperature expectation value 
+    Modified version of Eq. (19) of Haslebacher et al. (2022) by an additional quadratic term
+
+    Note the re-definition of 'b', which is now the temperature increase per decade
+
+    Note that 'm' is not bound to be a monthly aveage, but can have finer time binning,
+    albeit it has units of months. 
+    '''
+    a     = p[0]
+    # initialize b as increase per decade
+    b     = p[1]/12/10.
+    # initialize q as increase per decade^2    
+    q     = p[2]/12/10./12/10.
+    C     = p[3]
+    phimu = p[4]
+    omega = np.pi/6
+
+    if (verb):
+        #print (m)
+        #print ('phimu:',phimu)
+        print ('m-phimu:',m-phimu)
+        print ('m-phimu shape:',(m-phimu).shape)
+        print ('cos:',np.cos(m-phimu))
+        
+
+    # subtract the mean of the function (1+cos(x))^2 to not alter the
+    # significance of a as mean temperature, see also
+    # https://www.wolframalpha.com/input?i=calculate+the+mean+value+of+%281%2Bcos%28x%29%29%5E2+from+0+to+2pi
+    return a + b * m + q * m**2 + C*(0.5*((np.cos(omega*(m-phimu))+1)**2) - 0.75)
     
 def mu2(p,m,verb=False):
     '''
@@ -337,6 +369,26 @@ def logpdf(params,T,m):
     #return -0.5*x**2 - np.log(sigma_i)
     return norm.logpdf(T,mu_i,sigma_i)
 
+def logpdf_sq(params,T,m):
+    '''
+    Product of Gaussian PDFs for temperature measurements
+    '''
+
+    sigma0 = params[5] #4.3 #p[2]
+    #D      = params[5] #0.5 #p[3]
+    #phisig = params[6] # 2.5 #p[4]
+    
+    mu_i = mu_sq(params[0:5],m)
+    sigma_i = sigma0
+
+    if (np.any(sigma_i[sigma_i <= 0])):
+        print ('Sigma < 0 found for ',sigma0)
+
+    #print ('TEST ',params,' x=',(T-mu_i)/sigma_i)
+    #x = (T-mu_i)/sigma_i 
+    #return -0.5*x**2 - np.log(sigma_i)
+    return norm.logpdf(T,mu_i,sigma_i)
+
 def logpdf2(params,T,m):
     '''
     Product of Gaussian PDFs for temperature measurements
@@ -538,6 +590,9 @@ def logpdf_dCm_hum(params,T,m,h,p0,p1):
 def loglike(params,T,m):
     return -1.* logpdf(params,T,m).sum()
 
+def loglike_sq(params,T,m):
+    return -1.* logpdf_sq(params,T,m).sum()
+
 def loglike2(params,T,m):
     return -1.* logpdf2(params,T,m).sum()
 
@@ -585,6 +640,7 @@ class Likelihood_Wrapper:
         self.inits = inits # parameter inits
         self.bounds = bounds # parameter bounds
         self.name = name
+        self.is_offset = False
         self.num_calls = 0 # how many times f has been called
         self.callback_count = 0 # number of times callback has been called, also measures iteration count
         self.list_calls_inp = [] # input of all calls
@@ -594,7 +650,7 @@ class Likelihood_Wrapper:
         self.list_callback_inp = [] # only appends inputs on callback, as such they correspond to the iterations
         self.list_callback_res = [] # only appends results on callback, as such they correspond to the iterations
 
-    def setargs_df(self,df,arg,mask,is_daily,is_median,day_coverage=85,np_mask=None,data_expected=expected_data_per_day):
+    def setargs_df(self,df,arg,mask,is_daily,is_median,day_coverage=85,data_expected=None,np_mask=None):
 
         self.is_daily = is_daily
         if (is_daily):
@@ -632,7 +688,7 @@ class Likelihood_Wrapper:
             
         self.args = (self.Y_arr,self.X_arr)   # further arguments of function
 
-    def setargs_df2(self,df,arg,mask1,mask2,is_daily,is_median,day_coverage=85,np_mask=None,data_expected=expected_data_per_day):
+    def setargs_df2(self,df,arg,mask1,mask2,is_daily,is_median,day_coverage=85,np_mask=None,data_expected=None):
 
         self.is_daily = is_daily
         if (is_daily):
@@ -1279,12 +1335,12 @@ class Likelihood_Wrapper:
         #cbar = plt.colorbar(CS)
         #cbar.ax.set_ylabel(clabel, fontsize = 25)
 
-    def red_residuals(self, is_sigma2=False,is_offset=False):
+    def red_residuals(self, is_sigma2=False):
 
         idxlast = -1
         if is_sigma2:
             idxlast = -3
-        if is_offset:
+        if self.is_offset:
             idxlast = idxlast-1
         
         if self.H_arr is None:
@@ -1292,17 +1348,17 @@ class Likelihood_Wrapper:
         else:
             return (self.Y_arr - self.mu_func(self.res.x[0:idxlast],self.X_arr,self.H_arr,self.H_p0,self.H_p1))/self.res.x[idxlast]            
 
-        if is_offset is False:
+        if self.is_offset is False:
             return res1
         
         return pd.concat([(self.Y2 - self.mu_func(self.res.x[0:idxlast],self.X2_arr) - self.res.x[-1])/self.res.x[idxlast],res1])
     
-    def full_residuals(self, is_sigma2=False,is_offset=False):
+    def full_residuals(self, is_sigma2=False):
 
         idxlast = -1
         if is_sigma2:
             idxlast = -3
-        if is_offset:
+        if self.is_offset:
             idxlast = idxlast-1
         
         if self.H_arr is None:
@@ -1310,14 +1366,14 @@ class Likelihood_Wrapper:
         else:
             res1 = self.Y - self.mu_func(self.res.x[0:idxlast],self.X_arr,self.H_arr,self.H_p0,self.H_p1)
 
-        if is_offset is False:
+        if self.is_offset is False:
             return res1
 
         return pd.concat([self.Y2 - self.mu_func(self.res.x[0:idxlast],self.X2_arr) - self.res.x[-1],res1])
                 
     def chi_square_ndf(self,is_sigma2=False):
 
-        residuals = self.red_residuals(is_sigma2=is_sigma2,is_offset=self.is_offset)
+        residuals = self.red_residuals(is_sigma2=is_sigma2)
         self.chi2 = (residuals**2).sum()/(len(residuals)-len(self.res.x)-1)
         print('CHI2/NDF for ',self.name,' = ',self.chi2)
         return self.chi2
