@@ -1,0 +1,49 @@
+plotdir: Plots-CTAO-S
+h5file_long: CTAO-S_site_env_data_all_long.h5
+data_spacing_minutes: 0.16666667 # 1/6
+
+is_20to22: True
+tits: _CTAO-S
+
+name_temperature: temperature
+name_humidity:    humidity
+name_pressure:    pressure
+name_ws_current:  windSpeedCurrent
+name_ws_gust:     windGust
+name_ws_average:  windSpeedAverage
+name_wdir_current: windDirection
+name_wdir_average: windDirectionAverage
+
+# from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
+naoi_file: norm.daily.nao.cdas.z500.19500101_current.csv
+not_file: NOT_2003_2023.h5
+
+coverage_cut: 50
+coverage_cut_for_daily_samples: 90
+coverage_cut_for_monthly_samples: 90
+day_coverage_for_samples: 85  # in percent
+day_coverage_for_pressure: 90
+
+wind_binning: np.concatenate((np.arange(0.,104.,4.)-0.5,105.2 + 4*(np.arange(0,12)-0.5) + 0.3*(np.arange(0,12)-0.5)**2),axis=None)
+
+WS_start: 2015-04-01 00:00:00
+WS_end: 2018-12-31 23:59:59
+WS_relocation: 1997-01-01 00:00:01
+new_WS: 1997-01-01 00:00:01
+
+# temperature
+minimum_temperature: -15
+maximum_temperature: 45
+
+# Pressure
+minimum_pressure: 650
+maximum_pressure: 800 
+
+# DTR
+is_DTR_offset: false
+is_DTR_averaging: true
+is_DTR_NOT: false
+avg_n_DTR: 9
+freq_n_DTR: 1min
+#offset_from_temperature: 0.051    # result of offset analysis from plot-temperatur
+day_coverage_for_diurnal: 95

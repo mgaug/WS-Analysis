@@ -1,0 +1,101 @@
+plotdir: Plots-NOT
+h5file_long: NOT_2003_2023.h5
+data_spacing_minutes: 5
+has_multiple_data_spacings: true
+data_spacing_before: 5  # minutes
+data_spacing_after: 1  # minutes
+
+tits: '_NOT'
+
+longitude: -17.8907 * u.deg
+latitude: 28.7619 * u.deg
+
+
+name_temperature: TempInAirDegC
+name_humidity:    Humidity
+name_pressure:    PressureHPA
+name_ws_current:  windSpeedCurrent
+name_ws_gust:     windGust
+name_ws_average:  windSpeedAverage
+name_wdir_current: WindDirectionDeg
+name_wdir_average: windDirectionAverage
+
+# from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
+is_naoi: false
+naoi_file: norm.daily.nao.cdas.z500.19500101_current.csv
+
+coverage_cut: 50
+coverage_cut_for_daily_samples: 10
+coverage_cut_for_monthly_samples: 80
+day_coverage_for_samples: 80  # in percent
+day_coverage_for_pressure: 90
+
+wind_binning: np.concatenate((np.arange(0.,104.,4.)-0.5,105.2 + 4*(np.arange(0,10)-0.5) + 0.3*(np.arange(0,10)-0.5)**2),axis=None) 
+
+WS_start: 2003-01-01 00:00:01
+WS_end:  2019-12-31 23:59:59
+WS_relocation: 2003-03-01 00:00:01
+new_WS: 2007-02-02 00:00:01
+new_model: 2007-02-02 12:00:01
+old_model: 2023-01-16 00:00:01
+WS_dataspacing_change: 2007-02-02 12:00:00
+
+# temperature
+minimum_temperature: -11
+maximum_temperature: 35
+
+# pressure
+minimum_pressure: 730
+maximum_pressure: 850
+
+# DTR
+is_DTR_offset: true
+is_DTR_averaging: true
+is_DTR_NOT: true
+is_DTR_humcorr: true
+is_DTR_dCm: true
+is_DTR_profile2d: true
+avg_n_DTR: 5
+freq_n_DTR_before: 6min
+freq_n_DTR_after: 2min
+offset_from_temperature: 0.    # result of offset analysis from plot-temperature
+day_coverage_for_diurnal: 95
+
+# humidity
+is_humidity_offset: false
+is_humidity_20to22: true
+minimum_humidity: 0
+maximum_humidity: 101
+
+
+
+# Initialize likelihoods
+is_coauthor_tests: true
+is_temperature_offset: false
+is_temperature_hessian: true
+is_temperature_NOT: true
+
+init_temperature: np.array([6.3, 0., 6., 7., 3.2])
+init_temperature_dphim: np.array([6.3, 0., 6., 7., 0., 3.2])
+init_temperature_dCm: np.array([6.3, 0., 6., 7., 0., 3.2]) 
+init_temperature_monthly: np.array([6.3, 0., 6., 4.2, 2.])
+init_temperature_offset: np.array([6.3, 0., 6., 7., 3.2, 0.]) 
+
+init_mu2_pressure: np.array([772., 0., 5.5, 6.6, 4., 9.1, 3.1])
+init_mu2_sig2_offset_pressure: np.array([772., 0., 5.6, 6.6, 4.2, 9.0, 3.1, -1.0, 4.0, 0.])
+init_mu2_sig2_pressure: np.array([772., 0., 5.2, 6.6, 3.7, 9.0, 3.1, -1.0, 4.0])
+init_mu2_offset_pressure: np.array([772., 0., 5.6, 6.6, 4.2, 9.0, 3.1, 0.])
+init_month_pressure: np.array([772., 0.,5.4,6.6,4.0, 8.9, 1.6])
+
+init_DTR: np.array([8.2, 0., 0.9, 5.9, 0.7])
+init_DTR_nob: np.array([8.2, 0.9, 5.9, 0.7])
+init_DTR_dphim: np.array([5., 0., 0.9, 5., 0., 2.3])
+init_DTR_dCm: np.array([5., 0., 0.6, 4.1, 0., 2.3])
+init_DTR_offset: np.array([8.2, 0., 0.9, 5.9, 0.7, 0.])    
+
+is_humidity_hessian: true
+init_hum: np.array([30., 0., 6.5, 9.9, 10.0])    
+init_hum2: np.array([30., 0.,6., 7., 10., 7.6, 26.3])
+init_hum4: np.array([24.5, 0.,20.8, 3.8, 26., 6.9, 17.1, -2.6, 3.1])
+init_hum2_offset: np.array([31.5, 0.,25.4, 1.2, 33., 7.6, 26.3,0.])
+init_hum_month: np.array([36.5, 0.,-25.4, 11.25, 33., 10.8, 12.9])
