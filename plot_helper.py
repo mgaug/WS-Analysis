@@ -20,17 +20,41 @@ from prettytable import PrettyTable
 import itertools
 import re
 import functools
+from datetime import datetime
+
 from likelihood_helper import mu, mu_Haslebacher, Likelihood_Wrapper
-from coverage_helper import expected_data_per_day, data_spacing_minutes
+#from coverage_helper import expected_data_per_day, data_spacing_minutes
 from extremes_helper import count_extremes_length_month
 
-# matplotlib year start  (mpl uses mdate in float mode, starting from 1970/01/01, counted in days
-ynums = np.array([12053., 12053.+365., 12053+365.+366.])   # 2003, 2004, 2005 
-for i in np.arange(0,4):
-    ynums = np.concatenate((ynums, np.arange(ynums[-1]+365,ynums[-1]+4*365,365)))  # add 2006, 2007, 2008 
-    ynums = np.append(ynums,ynums[-1]+366.)  # add year after leap year
-ynums = np.concatenate((ynums, np.arange(ynums[-1]+365,ynums[-1]+3*365,365))) # add next three years
-#ynums = np.append(ynums,ynums[-1]+61.) # add two more months 
+#is_ctaos=False
+#is_paranal=True
+# # matplotlib year start  (mpl uses mdate in float mode, starting from 1970/01/01, counted in days
+# #### FOR CTAO-S
+#d1 = datetime(2015,1,1)
+#d2 = datetime(2016,1,1)
+#d3 = datetime(2017,1,1)
+#d4 = datetime(2018,1,1)
+#d5 = datetime(2019,1,1)
+#if is_ctaos:
+#    ynums = np.array([mdates.date2num(d1),mdates.date2num(d2),mdates.date2num(d3),mdates.date2num(d4),mdates.date2num(d5) ])   # 2015, 2016, 2017, 2018, 2019
+#elif is_paranal:
+#    ynums = np.array([12053.-5*365.-366.,12053.-4*365.-366.,12053.-3.*365-366., 12053.-2*365.-366., 12053-2*365.])   # 1997, 1998, 1999, 2000, 2001     
+#    ynums = np.concatenate((ynums,np.array([12053.-365.,12053., 12053.+365., 12053+365.+366.])))   # 2002, 2003, 2004, 2005 
+#    for i in np.arange(0,4):
+#        ynums = np.concatenate((ynums, np.arange(ynums[-1]+365,ynums[-1]+4*365,365)))  # add 2006, 2007, 2008 
+#        ynums = np.append(ynums,ynums[-1]+366.)  # add year after leap year
+#    ynums = np.concatenate((ynums, np.arange(ynums[-1]+365,ynums[-1]+3*365,365))) # add next three years
+#    ynums = np.append(ynums, ynums[-1]+366.) # add 2024 as leap year
+#    ynums = np.append(ynums, ynums[-1]+365.) # add 2025
+#    #ynums = np.append(ynums, ynums[-1]+365.) # add 2026
+#else:
+#    ynums = np.array([12053., 12053.+365., 12053+365.+366.])   # 2003, 2004, 2005 
+#    for i in np.arange(0,4):
+#        ynums = np.concatenate((ynums, np.arange(ynums[-1]+365,ynums[-1]+4*365,365)))  # add 2006, 2007, 2008 
+#        ynums = np.append(ynums,ynums[-1]+366.)  # add year after leap year
+#    ynums = np.concatenate((ynums, np.arange(ynums[-1]+365,ynums[-1]+3*365,365))) # add next three years
+#    ynums = np.append(ynums, ynums[-1]+366.) # add 2024 as leap year
+#    #ynums = np.append(ynums,ynums[-1]+61.) # add two more months 
 
 hum_binning = np.concatenate((np.array([-0.0001,2.00001]),np.arange(3.00001,101.00001)))
 months_n = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -80,7 +104,7 @@ def conjunction(*conditions):
 def disjunction(*conditions):
     return functools.reduce(np.logical_or, conditions)
 
-def plot_mensual(df_sencer,arg, ytit, fullfits=False):
+def plot_mensual(df_sencer,arg, ytit, coverage_cut=50., mult=1.,fullfits=False):
 
     months = range(1,13)
     Medianes = []
@@ -90,7 +114,7 @@ def plot_mensual(df_sencer,arg, ytit, fullfits=False):
     Maxs = []
 
     for mes in months: 
-        df = df_sencer[df_sencer['Month'] == mes]
+        df = df_sencer[((df_sencer['Month'] == mes) & (df_sencer['coverage']>coverage_cut))]
         
         df_sup = df[df[arg] > df[arg].median()]
         df_inf = df[df[arg] < df[arg].median()]
@@ -104,33 +128,44 @@ def plot_mensual(df_sencer,arg, ytit, fullfits=False):
         Mins.append(df[arg].min())
         Maxs.append(df[arg].max())
 
+
+    Medianes = np.array(Medianes)*mult
+    Sup = np.array(Sup)*mult
+    Inf = np.array(Inf)*mult
+    Mins = np.array(Mins)*mult
+    Maxs = np.array(Maxs)*mult
+    months = np.array(months)
+    
     plt.plot(months, Medianes, marker = 'o', linestyle = 'none', color = 'steelblue', markersize = 7,
              markerfacecolor = 'white', markeredgecolor = 'k')
     plt.fill_between(months, Sup, Inf, alpha = 0.3)
 
-    if (arg == 'temperature' or arg == 'pressure' or 'gradient' in arg): 
+    if ('emperature' in arg or 'ressure' in arg or 'gradient' in arg): 
         plt.plot(months,Mins,color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k', linestyle='solid')
     plt.plot(months,Maxs,color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k', linestyle='solid')
     #plt.xlabel('Month', fontsize=20)
     plt.ylabel(ytit,    fontsize=26)
 
-    if (arg == 'pressure' or arg == 'PressureHPA'):
+    if ('ressure' in arg or arg == 'PressureHPA'):
         if (fullfits == True):
-            init = [ 788., 6.1, 4.53]
-            out = leastsq(sinerrf, init, args=(np.array(months), np.array(Medianes)))
+            #init = [ 788., 6.1, 4.53]  # MAGIC 
+            init = [ 740., 6.1, 6.53]  # Paranal
+            out = leastsq(sinerrf, init, args=(months, Medianes))
             c = out[0]
             x = np.arange(1,12.1,0.1)
             #print ('MEDIANES',Medianes)
             plt.plot(x, sinfunc(out[0], x),label=r'$\widetilde{T}=%.1f+%.1f\cdot\sin(\frac{2\pi}{12}\cdot(m-%.1f))$ (Haslebacher et al.)' %(c[0],c[1],c[2]),color='r')
-            init = [ 788., 6.1, 4.53]
-            out = leastsq(cosexperrf, init, args=(np.array(months), np.array(Medianes)))
+            #init = [ 788., 6.1, 4.53]  # MAGIC 
+            init = [ 740., 6.1, 6.53]  # Paranal
+            out = leastsq(cosexperrf, init, args=(months, Medianes))
             c = out[0]
             x = np.arange(1,12.1,0.1)
             #print ('MEDIANES',Medianes)
             plt.plot(x, cosexpf(out[0], x),label=r'$\widetilde{T}=%.1f+%.1f\cdot\{\ [\cos(\frac{2\pi}{12}\cdot(m-%.1f))+1]^{2}/2-0.75\ \}$ (new formula)' %(c[0],c[1],c[2]),color='orange')
             
-        init=  [ 788., 5.6,  4.1,  4.2,  9.6 ]
-        out = leastsq(sinerrf2, init, args=(np.array(months), np.array(Medianes)))
+        #init=  [ 788., 5.6,  4.1,  4.2,  9.6 ]
+        init=  [ 740., 5.6,  6.1,  4.2,  9.6 ]
+        out = leastsq(sinerrf2, init, args=(months, Medianes))
         c = out[0]
         print ('Mensual fit result: ', c)
         x = np.arange(1,12.1,0.1)
@@ -140,15 +175,17 @@ def plot_mensual(df_sencer,arg, ytit, fullfits=False):
         if (fullfits == True):        
             plt.legend(loc='best')
     
-    if (arg == 'temperature'):
-        init = [ 11., 6.1, 4.53]
-        out = leastsq(sinerrf, init, args=(np.array(months), np.array(Medianes)))
+    if ('emperature' in arg):
+        #init = [ 11., 6.1, 4.53]   # MAGIC 
+        init = [ 12., 6.1, 0.9]  # Paranal
+        out = leastsq(sinerrf, init, args=(months, Medianes))
         c = out[0]
         x = np.arange(1,12.1,0.1)
         #print ('MEDIANES',Medianes)
         plt.plot(x, sinfunc(out[0], x),label=r'$\widetilde{T}=%.1f^\circ C+%.1f^\circ C\cdot\sin(\frac{2\pi}{12}\cdot(m-%.1f))$ (Eq. 19H)' %(c[0],c[1],c[2]),color='r')
-        init = [ 11., 6.1, 4.53]
-        out = leastsq(cosexperrf, init, args=(np.array(months), np.array(Medianes)))
+        #init = [ 11., 6.1, 4.53]  # MAGIC 
+        init = [ 12., 6.1, 0.9]        
+        out = leastsq(cosexperrf, init, args=(months, Medianes))
         c = out[0]
         x = np.arange(1,12.1,0.1)
         #print ('MEDIANES',Medianes)
@@ -159,13 +196,13 @@ def plot_mensual(df_sencer,arg, ytit, fullfits=False):
     if (arg == 'humidity'):
         if (fullfits == True):
             init = [ 31., 9., 8.7]
-            out = leastsq(sinerrf, init, args=(np.array(months), np.array(Medianes)))
+            out = leastsq(sinerrf, init, args=(months, Medianes))
             c = out[0]
             x = np.arange(1,12.1,0.1)
             #print ('MEDIANES',Medianes)
             plt.plot(x, sinfunc(out[0], x),label=r'$\widetilde{T}=%.1f+%.1f\cdot\sin(\frac{2\pi}{12}\cdot(m-%.1f))$ (Haslebacher et al.)' %(c[0],c[1],c[2]),color='r')
             init = [ 31., 9., 3.3]
-            out = leastsq(cosexperrf, init, args=(np.array(months), np.array(Medianes)))
+            out = leastsq(cosexperrf, init, args=(months, Medianes))
             c = out[0]
             x = np.arange(1,12.1,0.1)
             #print ('MEDIANES',Medianes)
@@ -176,7 +213,7 @@ def plot_mensual(df_sencer,arg, ytit, fullfits=False):
             #x = np.arange(1,12.1,0.1)
             #plt.plot(x, dsinfunc(out[0], x),label=r'$\widetilde{T}=%.1f+%.1f\cdot\{\sin(\frac{2\pi}{12}\cdot(m-%.1f))+%.1f\cdot\sin(\frac{2\pi}{12}\cdot(m-%.1f)$' %(c[0],c[1],c[2],c[3],c[4]),color='violet')
         init=  [ 35.86490607,  26.88409446,  3.64347761,  33.79520937,  7.25303265 ]
-        out = leastsq(sinerrf2, init, args=(np.array(months), np.array(Medianes)))
+        out = leastsq(sinerrf2, init, args=(months, Medianes))
         c = out[0]
         x = np.arange(1,12.1,0.1)
         #print ('MEDIANES',Medianes)
@@ -191,9 +228,9 @@ def plot_mensual(df_sencer,arg, ytit, fullfits=False):
     ax.xaxis.set_tick_params(labelsize=26)
     plt.xticks(np.arange(1,13), months_n,ha='center')
 
-def get_downtimes(df,arg_dict,year_min=2003,year_max=2023,windgust=200,windgust_waitingtime=20):
+def get_downtimes(df,arg_dict,data_spacing,year_min=2003,year_max=2023,windgust=200,windgust_waitingtime=20):
 
-    pd.set_option('display.max_columns', 50)        
+    #pd.set_option('display.max_columns', 50)        
     downtimes = []
     for year in np.arange(year_min,year_max+1):
         
@@ -247,10 +284,10 @@ def get_downtimes(df,arg_dict,year_min=2003,year_max=2023,windgust=200,windgust_
         # now replace the actual Bdiff with the maximum waiting time if that is exceeded
         gust_times = bad_gusts['Bdiff1'].where(bad_gusts['Bdiff1'] < pd.Timedelta(windgust_waitingtime,'m'),pd.Timedelta(windgust_waitingtime,'m'))
         # and remove those Bdiff's that a only 2 or less data spacings, since these would not cause additional time loss 
-        gust_times = gust_times[gust_times > pd.Timedelta(2*data_spacing_minutes+1,'m')]
+        gust_times = gust_times[gust_times > pd.Timedelta(2*data_spacing+1,'m')]
         #print ('gust times: ',gust_times)
 
-        count_loss_from_wind_gusts = gust_times.sum()/pd.Timedelta(data_spacing_minutes,'m')
+        count_loss_from_wind_gusts = gust_times.sum()/pd.Timedelta(data_spacing,'m')
         #print ('gust times sum: ',gust_times.sum())
         #print ('count loss: ',count_loss_from_wind_gusts)
         
@@ -263,7 +300,7 @@ def get_downtimes(df,arg_dict,year_min=2003,year_max=2023,windgust=200,windgust_
 
     return downtimes
 
-def get_downtime_from_windgust(df_sencer,arg_dict,windgust,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023,windgust_waitingtime=20):
+def get_downtime_from_windgust(df_sencer,arg_dict,windgust,data_spacing,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023,windgust_waitingtime=20):
 
     dfn = df_sencer[((df_sencer['coverage'] > coverage_cut) & (df_sencer['sun_alt']<sun_alt))]
 
@@ -275,7 +312,7 @@ def get_downtime_from_windgust(df_sencer,arg_dict,windgust,coverage_cut=50,sun_a
     downtime_mean = 0.
     
     for m in months: 
-        downtimes = get_downtimes(dfn[dfn['Month'] == m],arg_dict,year_min,year_max,windgust=windgust,windgust_waitingtime=windgust_waitingtime)
+        downtimes = get_downtimes(dfn[dfn['Month'] == m],arg_dict,data_spacing,year_min,year_max,windgust=windgust,windgust_waitingtime=windgust_waitingtime)
         downtimes_arr = np.array(downtimes)
         downtime_mean += downtimes_arr.mean() * weights[m-1]
 
@@ -284,14 +321,14 @@ def get_downtime_from_windgust(df_sencer,arg_dict,windgust,coverage_cut=50,sun_a
     print ('downtime mean for windgust: ',windgust,'=',downtime_mean)
     return downtime_mean
 
-def plot_downtime_vs_windgust(df_sencer,arg_dict,windgustmin,windgustmax,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023,windgust_waitingtime=20, color='k'):
+def plot_downtime_vs_windgust(df_sencer,arg_dict,windgustmin,windgustmax,data_spacing,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023,windgust_waitingtime=20, color='k'):
 
     windgusts = np.arange(windgustmin,windgustmax,2)
 
     downtimes = []
     
     for wg in windgusts:
-        downtimes.append(get_downtime_from_windgust(df_sencer,arg_dict,wg,coverage_cut,sun_alt,year_min,year_max,windgust_waitingtime=windgust_waitingtime))
+        downtimes.append(get_downtime_from_windgust(df_sencer,arg_dict,wg,data_spacing,coverage_cut,sun_alt,year_min,year_max,windgust_waitingtime=windgust_waitingtime))
 
     tit = '{:.0f} min'.format(windgust_waitingtime)
     plt.plot(windgusts, np.array(downtimes), marker = 'o', linestyle = 'none', color = 'steelblue', markersize = 7,
@@ -311,8 +348,41 @@ def plot_downtime_vs_windgust(df_sencer,arg_dict,windgustmin,windgustmax,coverag
 
     plt.title(uptime_s, fontsize=20, loc='right')     
     
+def plot_downtime_vs_windaverage(df_sencer,arg_dict,name_windav,windavmin,windavmax,data_spacing,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023,windgust_limit=60, windgust_waitingtime=20, color='k'):
+
+    windavgs = np.arange(windavmin,windavmax,2)
+
+    downtimes = []
     
-def plot_mensual_downtime(df_sencer,arg_dict,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023, windgust=40):
+    for wa in windavgs:
+        wg=windgust_limit
+        arg_dict[name_windav][1] = wa
+        downtimes.append(get_downtime_from_windgust(df_sencer,arg_dict,wg,data_spacing,coverage_cut,sun_alt,year_min,year_max,windgust_waitingtime=windgust_waitingtime))
+
+    tit = 'Wind gusts < {:.0f} km/h, {:.0f} min waiting time'.format(windgust_limit,windgust_waitingtime)
+    plt.plot(windavgs, np.array(downtimes), marker = 'o', linestyle = 'none', color = 'steelblue', markersize = 7,
+             markerfacecolor = 'white', markeredgecolor = color,label=tit)
+
+    uptime_s = ''
+    for key, value in arg_dict.items():
+        if name_windav in key:
+            continue
+        uptime_s += key+value[0]+' '+str(value[1])+' '+value[2]+'; '
+    # replace only the last occurrence of ';'
+    uptime_s = uptime_s[::-1].replace(';','', 1)[::-1]
+    # replace capital letters by lower case and white space
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', uptime_s)
+    uptime_s = re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1).lower()
+    #uptime_s = ' '.join(l.lower() for l in re.findall('[A-Z][^A-Z]*', uptime_s))
+    uptime_s = uptime_s+r';$T>T_{DP}+2^{\circ}C$'
+    uptime_s = uptime_s.replace('humidity','RH')
+
+    plt.title(uptime_s, fontsize=20, loc='right')     
+    
+
+
+    
+def plot_mensual_downtime(df_sencer,arg_dict,data_spacing,coverage_cut=50,sun_alt=-12,year_min=2003,year_max=2023, windgust=40):
 
     dfn = df_sencer[((df_sencer['coverage'] > coverage_cut) & (df_sencer['sun_alt']<sun_alt))]
 
@@ -325,8 +395,13 @@ def plot_mensual_downtime(df_sencer,arg_dict,coverage_cut=50,sun_alt=-12,year_mi
 
     for mes in months: 
 
-        downtimes = get_downtimes(dfn[dfn['Month'] == mes],arg_dict,year_min,year_max,windgust=windgust)
+        print ('Entering month: ', mes, flush=True)
+        
+        downtimes = get_downtimes(dfn[dfn['Month'] == mes],arg_dict,data_spacing,year_min,year_max,windgust=windgust)
         downtimes_arr = np.array(downtimes)
+
+        print ('Downtimes for month: ', mes, ': ', len(downtimes_arr), flush=True)
+        
         median = np.median(downtimes_arr)
         
         downtimes_sup = downtimes_arr[downtimes_arr > median]
@@ -381,7 +456,7 @@ def plot_mensual_downtime(df_sencer,arg_dict,coverage_cut=50,sun_alt=-12,year_mi
     #plt.legend(loc='best')
 
 
-def plot_mensual_diurnal(df, arg, ytit, min_coverage=50, day_coverage=80, is_lombardi=False):
+def plot_mensual_diurnal(df, arg, ytit, expected_data_per_day, min_coverage=50, day_coverage=80, is_lombardi=False):
 
     # centering of time averages, see https://stackoverflow.com/questions/47395119/center-datetimes-of-resampled-time-series
     h_shift = 4
@@ -524,14 +599,16 @@ def plot_mensual_distributions(dfn,arg, ytit,resolution):
     plt.xticks(np.arange(1,13), months_n,ha='center')
     
 
-def plot_mensual_wind(df_sencer,fullfits=True):
+def plot_mensual_wind(df_sencer,fullfits=True,
+                      name_ws_average='windSpeedAverage', name_ws_current='windSpeedCurrent', name_ws_gust='windGust',
+                      ylim_outliers=[70., 160.],ylim_bulk=[5., 21.]):
     months = range(1,13)
     Medianes = []
     Sup = []
     Inf = []
     Mins = []
     Maxs = []
-    arg  = 'windSpeedAverage'
+    arg  = name_ws_average
     for m in months: 
         df = df_sencer[df_sencer['Month'] == m]
         
@@ -544,8 +621,8 @@ def plot_mensual_wind(df_sencer,fullfits=True):
         Sup.append(df[arg].median() + (df_sup[arg] - df[arg].median()).median())
         Inf.append(df[arg].median() - (df[arg].median() - df_inf[arg]).median())
 
-        Mins.append(df['windSpeedCurrent'].min())
-        Maxs.append(df['windGust'].max())
+        Mins.append(df[name_ws_current].min())
+        Maxs.append(df[name_ws_gust].max())
 
         
     # If we were to simply plot pts, we'd lose most of the interesting
@@ -584,8 +661,8 @@ def plot_mensual_wind(df_sencer,fullfits=True):
     ax.plot(months,Maxs,color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k')
 
     # zoom-in / limit the view to different portions of the data
-    ax.set_ylim(70., 160.)  # outliers only
-    ax2.set_ylim(5., 21.)  # most of the data
+    ax.set_ylim(ylim_outliers)  # outliers only
+    ax2.set_ylim(ylim_bulk)  # most of the data
 
     ax.yaxis.set_tick_params(labelsize=18)
     ax2.yaxis.set_tick_params(labelsize=18)
@@ -941,7 +1018,7 @@ def plot_mensual_rain_sun(df,arg,hum_threshold=90, lengthcut=3, direction='<', n
     plt.xlabel('Sun altitude (º)',fontsize=22)
     plt.legend(loc='best', fontsize=10)
     
-def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_night=False, coverage_cut=50):
+def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_night=False, coverage_cut=50, mult=1.):
 
     #res = df['months'].resample('M').mean().mask(coverage < coverage_cut)   
     mdays = [0., 31., 28.25, 31., 30., 31., 30., 31., 31., 30., 31., 30., 31.]
@@ -958,11 +1035,20 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
         arg_min = -0.00000001
         arg_max = 100.00000001
     else:
-        arg_min = dfn[arg].min()-resolution
-        arg_max = dfn[arg].max()+resolution
-    binning = pd.interval_range(start=arg_min, end=arg_max, freq=resolution) # int(np.rint((arg_max-arg_min)/resolution))
-    #print ('bins: ', binning)
-    binning_fine = pd.interval_range(start=arg_min, end=arg_max, freq=resolution*0.1) # int(np.rint((arg_max-arg_min)/resolution))
+        arg_min = dfn[arg].min()*mult-resolution
+        arg_max = dfn[arg].max()*mult+resolution
+
+    print ('arg_min: ', arg_min)
+    print ('arg_max: ', arg_max)        
+    if ((arg_max-arg_min)/resolution > 100.):
+        print ('CHANGING RESOLUTION TO: ', (arg_max-arg_min)/100)
+        binning      = pd.interval_range(start=arg_min, end=arg_max, freq=(arg_max-arg_min)/100) # int(np.rint((arg_max-arg_min)/resolution))
+    else:
+        binning      = pd.interval_range(start=arg_min, end=arg_max, freq=resolution) # int(np.rint((arg_max-arg_min)/resolution))        
+    #binning = pd.interval_range(start=arg_min, end=arg_max, freq=resolution) # int(np.rint((arg_max-arg_min)/resolution))
+    print ('bins: ', binning)
+    #binning_fine = pd.interval_range(start=arg_min, end=arg_max, freq=resolution*0.1) # int(np.rint((arg_max-arg_min)/resolution))
+    binning_fine = pd.interval_range(start=arg_min, end=arg_max, freq=(arg_max-arg_min)/100) # IMPORTANT: fine binning resolution CANNOT BE BETTER because an UNDOCUMENTED BUG OF pd.cut yields wrong results above a binning of 100!!!!
     #print ('bins fine: ', binning_fine)
 
     if arg == 'humidity':
@@ -971,8 +1057,8 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
 
     Months = range(1,13)
     for month in Months: 
-        freq      = pd.cut(dfn.loc[dfn['Month'] == month, arg],bins=binning, ordered=True).value_counts(normalize=True)
-        freq_fine = pd.cut(dfn.loc[dfn['Month'] == month, arg],bins=binning_fine, ordered=True).value_counts(normalize=True)
+        freq      = pd.cut(dfn.loc[dfn['Month'] == month, arg]*mult,bins=binning, ordered=True).value_counts(normalize=True)
+        freq_fine = pd.cut(dfn.loc[dfn['Month'] == month, arg]*mult,bins=binning_fine, ordered=True).value_counts(normalize=True)
         if (month == 1):
             freq_tot      = freq * mdays[month]/365.25
             freq_tot_fine = freq_fine * mdays[month]/365.25
@@ -997,8 +1083,8 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
             [ "Data points:", str(len(dfn.index)) ],
             [ "Mean:",r' $\bf{{\tt{{{0:>5.1f}{1:}}}}}$'.format(mean, sunit) ],
             [ "Std. Dev:", r' $\bf{{{0:>5.1f}{1:}}}$'.format(std, sunit) ],
-            [ "Max:", '{0:>5.1f}{1:}'.format(dfn[arg].max(), sunit) ],
-            [ "Min:", '{0:>5.1f}{1:}'.format(dfn[arg].min(), sunit) ],
+            [ "Max:", '{0:>5.1f}{1:}'.format(dfn[arg].max()*mult, sunit) ],
+            [ "Min:", '{0:>5.1f}{1:}'.format(dfn[arg].min()*mult, sunit) ],
             [ "5%:", '{0:>5.1f}{1:}'.format(quantiles[0], sunit) ],
             [ "25%:", '{0:>5.1f}{1:}'.format(quantiles[1], sunit) ],
             [ "Median:", r' $\bf{{{0:>5.1f}{1:}}}$'.format(quantiles[2], sunit) ],
@@ -1011,8 +1097,8 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
     s = f'{"Data points: ":<14}'+ '{0:}'.format(str(len(dfn.index))) + '\n' + \
         r'{0:<13} $\bf{{{1:>5.1f}{2:}}}$'.format("Mean:",mean, sunit) + '\n'+ \
         r'{0:<13} $\bf{{{1:>5.1f}{2:}}}$'.format("Std. dev.:",std, sunit) + '\n'+ \
-        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("Abs. maximum:", dfn[arg].max(), sunit) + '\n'+ \
-        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("Abs. minimum:", dfn[arg].min(), sunit) + '\n'+ \
+        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("Abs. maximum:", dfn[arg].max()*mult, sunit) + '\n'+ \
+        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("Abs. minimum:", dfn[arg].min()*mult, sunit) + '\n'+ \
         r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("5%  quartile:", quantiles[0], sunit) + '\n' + \
         r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("25% quartile:", quantiles[1], sunit) + '\n'+ \
         r'{0:<13} $\bf{{{1:>5.1f}{2:}}}$'.format("Median:", quantiles[2], sunit) + '\n'+ \
@@ -1024,8 +1110,8 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
         s = f'{"Data points: ":<14}'+ '{0:}'.format(str(len(dfn.index))) + '\n' + \
             r'{0:<13} $\bf{{{1:>5.2f}{2:}}}$'.format("Mean:",mean, sunit) + '\n'+ \
             r'{0:<13} $\bf{{{1:>5.2f}{2:}}}$'.format("Std. dev.:",std, sunit) + '\n'+ \
-            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("Abs. maximum:", dfn[arg].max(), sunit) + '\n'+ \
-            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("Abs. minimum:", dfn[arg].min(), sunit) + '\n'+ \
+            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("Abs. maximum:", dfn[arg].max()*mult, sunit) + '\n'+ \
+            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("Abs. minimum:", dfn[arg].min()*mult, sunit) + '\n'+ \
             r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("5%  quartile:", quantiles[0], sunit) + '\n' + \
             r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("25% quartile:", quantiles[1], sunit) + '\n'+ \
             r'{0:<13} $\bf{{{1:>5.2f}{2:}}}$'.format("Median:", quantiles[2], sunit) + '\n'+ \
@@ -1089,7 +1175,7 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
                  transform=ax.transAxes,
                  horizontalalignment='left', verticalalignment='top')
         
-def plot_historic(df, arg, coverage, min_coverage=50):
+def plot_historic(df, arg, coverage, ynums, min_coverage=50,mult=1):
 
     t_avg = 'M'
     # centering of time averages, see https://stackoverflow.com/questions/47395119/center-datetimes-of-resampled-time-series
@@ -1099,16 +1185,16 @@ def plot_historic(df, arg, coverage, min_coverage=50):
     #
     # Use the alternative offset argument of resample
     df_tmp = df[arg].resample(t_avg, offset='15D')
-    plt.plot(df_tmp.max().dropna().mask(coverage < min_coverage), color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k',linestyle='solid')
-    plt.plot(df_tmp.median().dropna().mask(coverage < min_coverage), color = 'steelblue', marker = 'o', markerfacecolor = 'white', markeredgecolor = 'k', linestyle='solid')
+    plt.plot(df_tmp.max().dropna().mask(coverage < min_coverage)*mult, color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k',linestyle='solid')
+    plt.plot(df_tmp.median().dropna().mask(coverage < min_coverage)*mult, color = 'steelblue', marker = 'o', markerfacecolor = 'white', markeredgecolor = 'k', linestyle='solid')
     plt.fill_between(df_tmp.median().dropna().index, 
-                     df_tmp.median().dropna().mask(coverage < min_coverage)+df_tmp.agg(lambda x: mad(x)).dropna().mask(coverage < min_coverage), 
-                     df_tmp.median().dropna().mask(coverage < min_coverage)-df_tmp.agg(lambda x: mad(x)).dropna().mask(coverage < min_coverage), 
+                     df_tmp.median().dropna().mask(coverage < min_coverage)*mult+df_tmp.agg(lambda x: mad(x)).dropna().mask(coverage < min_coverage)*mult, 
+                     df_tmp.median().dropna().mask(coverage < min_coverage)*mult-df_tmp.agg(lambda x: mad(x)).dropna().mask(coverage < min_coverage)*mult, 
                      alpha = 0.3, color='#1f77b4')  # require always default color
-    if (arg == 'temperature' or arg == 'pressure' or arg == 'PressureHPA' or arg == 'TempInAirDegC' or 'gradient' in arg): 
-        plt.plot(df_tmp.min().dropna().mask(coverage < min_coverage), marker = '.', color = 'lightskyblue', markersize = 0, linestyle='solid')
+    if ('emperature' in arg or 'ressure' in arg or arg == 'PressureHPA' or arg == 'TempInAirDegC' or 'gradient' in arg): 
+        plt.plot(df_tmp.min().dropna().mask(coverage < min_coverage)*mult, marker = '.', color = 'lightskyblue', markersize = 0, linestyle='solid')
     if arg == 'humidity':
-        plt.plot(df_tmp.min().dropna().mask(coverage < min_coverage).replace(0,1).replace(2,1), marker = '.', color = 'lightskyblue', markersize = 0,linestyle='solid')
+        plt.plot(df_tmp.min().dropna().mask(coverage < min_coverage).replace(0,1).replace(2,1)*mult, marker = '.', color = 'lightskyblue', markersize = 0,linestyle='solid')
     #plt.plot(df_tmp.max()*(coverage.array > 50.), color = 'lightskyblue', marker = 'o', markersize = 0, markerfacecolor = 'white', markeredgecolor = 'k')
     #plt.plot(df_tmp.median()*(coverage.array > 50.), color = 'steelblue', marker = 'o', markerfacecolor = 'white', markeredgecolor = 'k')
     #plt.fill_between(df_tmp.median().index, 
@@ -1125,14 +1211,22 @@ def plot_historic(df, arg, coverage, min_coverage=50):
     if (arg == 'pressure1'):     
         ax.set_xlim([ynums[1],ynums[-1]+365.])
     else:
-        ax.set_xlim([ynums[0],ynums[-1]+365.])        
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("  %Y"))
-    ax.yaxis.set_tick_params(labelsize=16)    
-    plt.xticks(ha='left',fontsize=12)
+        ax.set_xlim([ynums[0],ynums[-1]+365.])
+    if len(ynums) > 27:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    elif len(ynums) > 21:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter(" %Y"))
+    else:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("  %Y"))        
+    ax.yaxis.set_tick_params(labelsize=16)
+    if len(ynums) > 27:    
+        plt.xticks(ha='left',fontsize=11)
+    else:
+        plt.xticks(ha='left',fontsize=12)
     #print ('AXIS START: ', start, ' END: ', end)
     #print ('ticks: ', ynums)
 
-def plot_historic_fit_results(df, mask, like_wrapper, is_daily=True, day_coverage=85, color='r',is_sigma2=False,is_offset=False,offset=0.):
+def plot_historic_fit_results(df, mask, like_wrapper, expected_data_per_day, is_daily=True, day_coverage=85, color='r',is_sigma2=False,is_offset=False,offset=0.):
 
     if (is_daily):
         df_tmp = df.loc[mask,'mjd'].resample('D').mean().dropna()
@@ -1364,7 +1458,7 @@ def plot_coverage(coverage):
     plt.plot(coverage, color = 'steelblue', marker = 'o', markerfacecolor = 'white', markeredgecolor = 'k')
     #plt.plot(df['index'].resample('M').agg(lambda x: monthrange(x.year,x.month)[1]), color = 'steelblue', marker = 'o', markerfacecolor = 'white', markeredgecolor = 'k')
     
-def plot_historic_wind(df, coverage, min_coverage=50):
+def plot_historic_wind(df, coverage, ynums, min_coverage=50):
 
     t_avg = 'M'
     # centering of time averages, see https://stackoverflow.com/questions/47395119/center-datetimes-of-resampled-time-series
@@ -1396,7 +1490,7 @@ def plot_historic_wind(df, coverage, min_coverage=50):
     ax.yaxis.set_tick_params(labelsize=16)    
     plt.xticks(ha='left',fontsize=12)
     
-def plot_diurnal_spread(df, arg, coverage, min_coverage=50, day_coverage=80):
+def plot_diurnal_spread(df, arg, coverage, ynums, expected_data_per_day, min_coverage=50, day_coverage=80):
 
     # centering of time averages, see https://stackoverflow.com/questions/47395119/center-datetimes-of-resampled-time-series        
     df_s = df.shift(0.5, freq='D')
