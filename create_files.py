@@ -12,6 +12,9 @@ import json
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import glob
+import os
+import astropy.units as u
 
 from setup_helper import SetUp
 from sun_helper import AltAzSun, plot_anual_sol
@@ -21,17 +24,35 @@ from likelihood_helper import *
 from not_helper import not_read
 from naoi_helper import *
 from wind_helper import calc_ti, winddiraverage
-from coverage_helper import expected_data_per_day, apply_coverage
+from coverage_helper import apply_coverage
+from config_helper import ConfigFile
 
-jsonfile     = 'Data/WS2003-23.json'
-h5file_short = 'Data/WS2003-23_short.h5'
-h5file_long  = 'Data/WS2003-23_long.h5'
-h5file_corr  = 'Data/WS2003-23_corr.h5'
+config_file = 'configs/paranal.yaml'
+
+config = ConfigFile(config_file)
+data_spacing_minutes = config['data_spacing_minutes']
+expected_data_per_day = 60*24/data_spacing_minutes
+
+jsonfile = 'WS2003-23.json'
+#jsonfile = 'WS2023-24.json'
+#jsonfile = 'WS_detailed.json'
+#h5file_short = 'WS2003-23_short_withstate.h5'
+#h5file_short = 'WS2023-24_short.h5'
+#h5file_short = 'WS_detailed.h5'
+#h5file_short = 'CTAO-S_site_env_data_all.h5'
+h5file_short = 'Paranal_all.h5'
+#h5file_long = 'CTAO-S_site_env_data_all_long.h5'
+#h5file_long  = 'WS2003-23_long_with60min.h5'
+#h5file_long  = 'WS2023-24_long.h5'
+#h5file_long  = 'WS_detailed_long.h5'
+h5file_long = 'Paranal_all_long.h5'
+h5file_corr  = 'WS2003-23_corr.h5'
 # from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
 naoi_file = 'norm.daily.nao.cdas.z500.19500101_current.csv'
-#not_file = 'NOT_2003_2023.csv'
-#h5file_not = 'NOT_2003_2023.h5'
+not_file = 'NOT_2003_2023.csv'
+h5file_not = 'NOT_2003_2023.h5'
 
+is_csv = False
 is_json  = False
 invertcuts = False
 # This option is needed once to create the long file,
@@ -41,12 +62,37 @@ create_long = True
 create_corr = False
 create_not = False
 
+is_paranal = True
+freq_2min = False
+freq_1min = True
+data_sampling_interval_seconds = 60*data_spacing_minutes
+
 WS_start      = '2003-01-01 00:00:01'
 WS_relocation = '2004-03-01 00:00:01'
 new_WS        = '2007-03-20 00:00:01'
 new_model     = '2017-04-10 00:00:01'
 old_model     = '2023-01-16 00:00:01'
 NOT_end_of_data = '2019-12-31 23:59:59'
+#RH_drift_start  = '2020-01-01 00:00'
+#RH_drift_end    = '2023-01-16 14:00'
+
+name_temperature = config['name_temperature']
+name_humidity    = config['name_humidity']
+name_pressure    = config['name_pressure']
+name_ws_current  = config['name_ws_current']
+name_ws_gust     = config['name_ws_gust']
+name_ws_average  = config['name_ws_average']
+name_wdir_current= config['name_wdir_current']
+name_wdir_average= config['name_wdir_average']
+
+name_ws_gust     = 'Wind Speed max at 30m [m/s]'
+#name_ws_average  = 'windSpeedAverage'
+name_wdir_average= 'windDirectionAverage'    
+
+longitude = config['longitude']
+longitude = eval(longitude)
+latitude  = config['latitude']
+latitude = eval(latitude)
 
 pd.set_option('display.max_columns', 8)
 pd.set_option('display.max_rows', 500)
@@ -54,6 +100,32 @@ pd.set_option('max_seq_items',500)
 
 if __name__ == '__main__':
     SetUp()
+
+    if (is_csv):
+
+        all_files = glob.glob(os.path.join("Data/", "*.csv"))
+        df = pd.concat((pd.read_csv(f,parse_dates=True,sep=',',skip_blank_lines=True,comment='#') for f in all_files), ignore_index=True)
+        df['Date time'] = pd.to_datetime(df['Date time'])
+        df = df.set_index(['Date time'])
+        df = df.sort_index()
+        df['pressure_reliable'] = True
+        df['temperature_reliable'] = True
+        df['humidity_reliable'] = True
+        df['wind_reliable'] = True                
+
+        df['windSpeedAverage'] = df.rolling('10T',center=True,min_periods=1)[name_ws_current].mean().mul(3.6)
+        df['windGust'] = df[name_ws_gust].mul(3.6)
+        df['windSpeedCurrent'] = df[name_ws_current].mul(3.6)                
+        df['windDirectionAverage'] = df.rolling('10T',center=True,min_periods=1)[name_wdir_current].apply(winddiraverage)
+        
+        df.info()
+        print(df.head())
+
+        store = pd.HDFStore(h5file_short)
+        store['dff'] = df
+        store.close()
+        print ('Short file', h5file_short, ' successfully created')
+        exit(0)
 
     if (is_json):
         df = pd.read_json(jsonfile, convert_dates = True, orient = 'index')
@@ -123,12 +195,22 @@ if __name__ == '__main__':
     if create_long:
 
         dff = pd.read_hdf(h5file_short)
+
+        print (dff.head())
         
         dff['Year'] = dff.index.year                                
-        dff['Month'] = dff.index.month 
-        dff = AltAzSun(dff)
+        dff['Month'] = dff.index.month
+        if 'sun_alt' not in dff:
+            dff = AltAzSun(dff, lon=longitude, lat=latitude)
         #plot_anual_sol(dff)
 
+        if 'wind_reliable' not in dff:        
+            dff['wind_reliable'] = True 
+        if 'humidity_reliable' not in dff:                   
+            dff['humidity_reliable'] = True
+        if 'temperature_reliable' not in dff:                    
+            dff['temperature_reliable'] = True
+        
         # convert JD to MJD, and subtract then 55000,
         # in order to maintain sufficient precision, if the variable
         # is stored as float. 
@@ -143,10 +225,10 @@ if __name__ == '__main__':
         c1 = 238.88   # degC
         b2 = 17.966   # 
         c2 = 247.15   # degC
-        maskg0 = (dff['temperature'] > 0)
-        maskl0 = (dff['temperature'] <= 0)
-        gamma1 = np.log(dff.loc[maskg0,'humidity'].mul(0.01)) + dff.loc[maskg0,'temperature'].mul(b1) / (dff.loc[maskg0,'temperature']+c1)
-        gamma2 = np.log(dff.loc[maskl0,'humidity'].mul(0.01)) + dff.loc[maskl0,'temperature'].mul(b2) / (dff.loc[maskl0,'temperature']+c2)
+        maskg0 = (dff[name_temperature] > 0)
+        maskl0 = (dff[name_temperature] <= 0)
+        gamma1 = np.log(dff.loc[maskg0,name_humidity].mul(0.01)) + dff.loc[maskg0,name_temperature].mul(b1) / (dff.loc[maskg0,name_temperature]+c1)
+        gamma2 = np.log(dff.loc[maskl0,name_humidity].mul(0.01)) + dff.loc[maskl0,name_temperature].mul(b2) / (dff.loc[maskl0,name_temperature]+c2)
         dff.loc[maskg0,'DP'] = gamma1.mul(c1) / (b1 - gamma1)
         dff.loc[maskl0,'DP'] = gamma2.mul(c2) / (b2 - gamma2)
         #mask_h = ((dff.index > RH_drift_start) & (dff.index < RH_drift_end))
@@ -169,10 +251,10 @@ if __name__ == '__main__':
         a5 = 0.023101
         a6 = 4.686035
 
-        at1 = dff.loc[(dff['WB_reliable']==True),'temperature']*np.arctan(a1*np.power(dff.loc[(dff['WB_reliable']==True),'humidity']+a2,0.5))
-        at2 = np.arctan(dff.loc[(dff['WB_reliable']==True),'temperature']+dff.loc[(dff['WB_reliable']==True),'humidity'])
-        at3 = np.arctan(dff.loc[(dff['WB_reliable']==True),'humidity']-a3)
-        at4 = a4*np.power(dff.loc[(dff['WB_reliable']==True),'humidity'],1.5)*np.arctan(a5*dff.loc[(dff['WB_reliable']==True),'humidity'])
+        at1 = dff.loc[(dff['WB_reliable']==True),name_temperature]*np.arctan(a1*np.power(dff.loc[(dff['WB_reliable']==True),name_humidity]+a2,0.5))
+        at2 = np.arctan(dff.loc[(dff['WB_reliable']==True),name_temperature]+dff.loc[(dff['WB_reliable']==True),name_humidity])
+        at3 = np.arctan(dff.loc[(dff['WB_reliable']==True),name_humidity]-a3)
+        at4 = a4*np.power(dff.loc[(dff['WB_reliable']==True),name_humidity],1.5)*np.arctan(a5*dff.loc[(dff['WB_reliable']==True),name_humidity])
         dff.loc[dff['WB_reliable']==True,'WB'] = at1 + at2 - at3 + at4 - a6
         
         # calculation of wet bulb temperature according to the Ding approximation
@@ -183,76 +265,95 @@ if __name__ == '__main__':
         dff['WBD'] = np.nan
         dff['WBD_reliable'] = True
         #dff.loc[mask_h,'WB_reliable'] = False # gradual increase of humidity, compared with other stations
-        dff.loc[~(Filtre_Temperatures(dff, False)),'WBD_reliable'] = False
-        dff.loc[~(Filtre_Humidity(dff, False)),'WBD_reliable'] = False
+        #dff.loc[~(Filtre_Temperatures(dff, False)),'WBD_reliable'] = False
+        #dff.loc[~(Filtre_Humidity(dff, False)),'WBD_reliable'] = False
 
         a1 = 0.000643
         a2 = 6.1078
         a3 = 17.27
         a4 = 237.3
 
-        esat = a2*np.exp(dff.loc[(dff['WBD_reliable']==True),'temperature']*a3/(dff.loc[(dff['WBD_reliable']==True),'temperature']+a4))
-        desatdT = esat * ( a3 / (dff.loc[(dff['WBD_reliable']==True),'temperature']+a4) - a3 * (dff.loc[(dff['WBD_reliable']==True),'temperature']) / np.power((dff.loc[(dff['WBD_reliable']==True),'temperature']+a4),2))
-        dff.loc[dff['WBD_reliable']==True,'WBD'] = dff.loc[(dff['WBD_reliable']==True),'temperature'] - esat * (1- 0.01*dff.loc[(dff['WBD_reliable']==True),'humidity']) / ( a1 * dff.loc[(dff['WBD_reliable']==True),'pressure'] + desatdT)
+        esat = a2*np.exp(dff.loc[(dff['WBD_reliable']==True),name_temperature]*a3/(dff.loc[(dff['WBD_reliable']==True),name_temperature]+a4))
+        desatdT = esat * ( a3 / (dff.loc[(dff['WBD_reliable']==True),name_temperature]+a4) - a3 * (dff.loc[(dff['WBD_reliable']==True),name_temperature]) / np.power((dff.loc[(dff['WBD_reliable']==True),name_temperature]+a4),2))
+        dff.loc[dff['WBD_reliable']==True,'WBD'] = dff.loc[(dff['WBD_reliable']==True),name_temperature] - esat * (1- 0.01*dff.loc[(dff['WBD_reliable']==True),name_humidity]) / ( a1 * dff.loc[(dff['WBD_reliable']==True),name_pressure] + desatdT)
         
         mask_ti = (dff['wind_reliable'] == True)
-        dff['windTI'] = np.nan
-        dff.loc[mask_ti,'windTI'] = dff.loc[mask_ti,'windSpeedCurrent'].rolling('10T',center=True,min_periods=1).agg(calc_ti)
-        
-        # create new df entries containing time differences for between up to 5 rows behind
-        dff['diff1']  = dff.index.to_series().diff(1).fillna(pd.Timedelta(seconds=0))
-        dff['diff5']  = dff.index.to_series().diff(5).fillna(pd.Timedelta(seconds=0))
-        dff['diff10'] = dff.index.to_series().diff(10).fillna(pd.Timedelta(seconds=0))        
+        if is_paranal:
+            dff['windTI'] = dff['Wind Speed RMS at 30m [m/s]']/dff['Wind Speed at 30m [m/s]']
+        else:
+            dff['windTI'] = np.nan
+            dff.loc[mask_ti,'windTI'] = dff.loc[mask_ti,'windSpeedCurrent'].rolling('10T',center=True,min_periods=1).agg(calc_ti)
 
+        tdiff_2min  = 120 // data_sampling_interval_seconds
+        tdiff_10min = 600 // data_sampling_interval_seconds
+        tdiff_20min = 1200 // data_sampling_interval_seconds
+        tdiff_60min = 3600 // data_sampling_interval_seconds
+
+        # create new df entries containing time differences for between up to 5 rows behind
+        dff['diff0']  = dff.index.to_series().diff(1).fillna(pd.Timedelta(seconds=0))
+        dff['diff1']  = dff.index.to_series().diff(tdiff_2min).fillna(pd.Timedelta(seconds=0))
+        dff['diff5']  = dff.index.to_series().diff(tdiff_10min).fillna(pd.Timedelta(seconds=0))
+        dff['diff10'] = dff.index.to_series().diff(tdiff_20min).fillna(pd.Timedelta(seconds=0))
+        dff['diff30'] = dff.index.to_series().diff(tdiff_60min).fillna(pd.Timedelta(seconds=0))        
+            
         # less than 1min time differences are marked as duplicates
         dff['is_dup'] = False
-        mask_dup = (dff['diff1']>pd.Timedelta(0,'m')) & (dff['diff1']<=pd.Timedelta(1,'m'))
+        mask_dup = (dff['diff0']>pd.Timedelta(0,'s')) & (dff['diff0']<=pd.Timedelta(0.5*data_sampling_interval_seconds,'s'))            
         dff.loc[mask_dup,'is_dup'] = True
         
         # gradients defined as difference w.r.t previous row(s), divided by time difference
-        dff['Tgradient1'] = dff['temperature'].diff(1) / dff['diff1'].dt.total_seconds().div(60)
-        dff['Tgradient5'] = dff['temperature'].diff(5) / dff['diff5'].dt.total_seconds().div(60)
-        dff['Tgradient10'] = dff['temperature'].diff(10) / dff['diff10'].dt.total_seconds().div(60)        
-
+        dff['Tgradient0'] = dff[name_temperature].diff(1) / dff['diff0'].dt.total_seconds().div(60)        
+        dff['Tgradient1'] = dff[name_temperature].diff(tdiff_2min) / dff['diff1'].dt.total_seconds().div(60)
+        dff['Tgradient5'] = dff[name_temperature].diff(tdiff_10min) / dff['diff5'].dt.total_seconds().div(60)
+        dff['Tgradient10'] = dff[name_temperature].diff(tdiff_20min) / dff['diff10'].dt.total_seconds().div(60)
+        dff['Tgradient30'] = dff[name_temperature].diff(tdiff_60min) / dff['diff30'].dt.total_seconds().div(60)        
         # smooth temperature with a rolling window to 7 min.
-        dff['temperatureR'] = dff.rolling('7T',center=True,min_periods=1)['temperature'].mean()
-
+        dff['temperatureR'] = dff.rolling('7T',center=True,min_periods=1)[name_temperature].mean()
+            
         # temperature gradients from smoothing
-        dff['Tgradient1R']  = dff['temperatureR'].diff(1) / dff['diff1'].dt.total_seconds().div(60)
-        dff['Tgradient5R']  = dff['temperatureR'].diff(5) / dff['diff5'].dt.total_seconds().div(60)
-        dff['Tgradient10R'] = dff['temperatureR'].diff(10)/ dff['diff10'].dt.total_seconds().div(60)        
-
+        dff['Tgradient1R']  = dff['temperatureR'].diff(tdiff_2min) / dff['diff1'].dt.total_seconds().div(60)
+        dff['Tgradient5R']  = dff['temperatureR'].diff(tdiff_10min) / dff['diff5'].dt.total_seconds().div(60)
+        dff['Tgradient10R'] = dff['temperatureR'].diff(tdiff_20min)/ dff['diff10'].dt.total_seconds().div(60)
+        dff['Tgradient30R'] = dff['temperatureR'].diff(tdiff_60min)/ dff['diff30'].dt.total_seconds().div(60)        
         # masks to set the gradients after gaps to nan
+        # expect data spacing seconds
+        mask0 = ((dff['diff0']  > pd.Timedelta(0.5*data_sampling_interval_seconds,'s')) & (dff['diff0'] < pd.Timedelta(2*data_sampling_interval_seconds,'s')))
         # expect two minutes
         mask1 = ((dff['diff1']  > pd.Timedelta(1,'min'))  & (dff['diff1']<pd.Timedelta(3,'min')))
         # expect 10 minutes        
         mask5 = ((dff['diff5']  > pd.Timedelta(7,'min'))  & (dff['diff5']<pd.Timedelta(12,'min')))
         # expecte 20 minutes
         mask10= ((dff['diff10'] > pd.Timedelta(15,'min')) & (dff['diff10']<pd.Timedelta(25,'min')))        
-        
+        # expecte 60 minutes
+        mask30= ((dff['diff30'] > pd.Timedelta(50,'min')) & (dff['diff30']<pd.Timedelta(70,'min')))        
+
+        dff.loc[~mask0,'Tgradient0']   = np.nan        
         dff.loc[~mask1,'Tgradient1']   = np.nan
         dff.loc[~mask5,'Tgradient5']   = np.nan
-        dff.loc[~mask10,'Tgradient10'] = np.nan        
+        dff.loc[~mask10,'Tgradient10'] = np.nan
+        dff.loc[~mask30,'Tgradient30'] = np.nan        
 
         dff.loc[~mask1,'Tgradient1R']   = np.nan
         dff.loc[~mask5,'Tgradient5R']   = np.nan
-        dff.loc[~mask10,'Tgradient10R'] = np.nan        
+        dff.loc[~mask10,'Tgradient10R'] = np.nan
+        dff.loc[~mask30,'Tgradient30R'] = np.nan        
             
         # humidity gradients
 
         # gradients defined as difference w.r.t previous row(s), divided by time difference
-        dff['Rgradient1']  = dff['humidity'].diff(1)  / dff['diff1'].dt.total_seconds().div(60)
-        dff['Rgradient5']  = dff['humidity'].diff(5)  / dff['diff5'].dt.total_seconds().div(60)
-        dff['Rgradient10'] = dff['humidity'].diff(10) / dff['diff10'].dt.total_seconds().div(60)        
-
+        dff['Rgradient0']  = dff[name_humidity].diff(1) / dff['diff0'].dt.total_seconds().div(60)                
+        dff['Rgradient1']  = dff[name_humidity].diff(tdiff_2min)  / dff['diff1'].dt.total_seconds().div(60)
+        dff['Rgradient5']  = dff[name_humidity].diff(tdiff_10min)  / dff['diff5'].dt.total_seconds().div(60)
+        dff['Rgradient10'] = dff[name_humidity].diff(tdiff_20min) / dff['diff10'].dt.total_seconds().div(60)        
         # smooth humidity with a rolling window to 7 min.
-        dff['humidityR'] = dff.rolling('7T',center=True,min_periods=1)['humidity'].mean()
+        dff['humidityR'] = dff.rolling('7T',center=True,min_periods=1)[name_humidity].mean()
 
         # humidity gradients from smoothing
-        dff['Rgradient1R']  = dff['humidityR'].diff(1) / dff['diff1'].dt.total_seconds().div(60)
-        dff['Rgradient5R']  = dff['humidityR'].diff(5) / dff['diff5'].dt.total_seconds().div(60)
-        dff['Rgradient10R'] = dff['humidityR'].diff(10)/ dff['diff10'].dt.total_seconds().div(60)        
+        dff['Rgradient1R']  = dff['humidityR'].diff(tdiff_2min) / dff['diff1'].dt.total_seconds().div(60)
+        dff['Rgradient5R']  = dff['humidityR'].diff(tdiff_10min) / dff['diff5'].dt.total_seconds().div(60)
+        dff['Rgradient10R'] = dff['humidityR'].diff(tdiff_20min)/ dff['diff10'].dt.total_seconds().div(60)        
 
+        dff.loc[~mask0,'Rgradient0']   = np.nan        
         dff.loc[~mask1,'Rgradient1']   = np.nan
         dff.loc[~mask5,'Rgradient5']   = np.nan
         dff.loc[~mask10,'Rgradient10'] = np.nan        
@@ -264,18 +365,20 @@ if __name__ == '__main__':
         # pressure gradients
 
         # gradients defined as difference w.r.t previous row(s), divided by time difference
-        dff['Pgradient1']  = dff['pressure'].diff(1)  / dff['diff1'].dt.total_seconds().div(60)
-        dff['Pgradient5']  = dff['pressure'].diff(5)  / dff['diff5'].dt.total_seconds().div(60)
-        dff['Pgradient10'] = dff['pressure'].diff(10) / dff['diff10'].dt.total_seconds().div(60)        
+        dff['Pgradient0']  = dff[name_pressure].diff(1) / dff['diff0'].dt.total_seconds().div(60)                    
+        dff['Pgradient1']  = dff[name_pressure].diff(tdiff_2min)  / dff['diff1'].dt.total_seconds().div(60)
+        dff['Pgradient5']  = dff[name_pressure].diff(tdiff_10min)  / dff['diff5'].dt.total_seconds().div(60)
+        dff['Pgradient10'] = dff[name_pressure].diff(tdiff_20min) / dff['diff10'].dt.total_seconds().div(60)        
 
         # smooth pressure with a rolling window to 7 min.
-        dff['pressureR'] = dff.rolling('7T',center=True,min_periods=1)['pressure'].mean()
+        dff['pressureR'] = dff.rolling('7T',center=True,min_periods=1)[name_pressure].mean()
 
         # pressure gradients from smoothing
-        dff['Pgradient1R']  = dff['pressureR'].diff(1)  / dff['diff1'].dt.total_seconds().div(60)
-        dff['Pgradient5R']  = dff['pressureR'].diff(5)  / dff['diff5'].dt.total_seconds().div(60)
-        dff['Pgradient10R'] = dff['pressureR'].diff(10) / dff['diff10'].dt.total_seconds().div(60)        
+        dff['Pgradient1R']  = dff['pressureR'].diff(tdiff_2min)  / dff['diff1'].dt.total_seconds().div(60)
+        dff['Pgradient5R']  = dff['pressureR'].diff(tdiff_10min)  / dff['diff5'].dt.total_seconds().div(60)
+        dff['Pgradient10R'] = dff['pressureR'].diff(tdiff_20min) / dff['diff10'].dt.total_seconds().div(60)        
 
+        dff.loc[~mask0,'Pgradient0']   = np.nan        
         dff.loc[~mask1,'Pgradient1']   = np.nan
         dff.loc[~mask5,'Pgradient5']   = np.nan
         dff.loc[~mask10,'Pgradient10'] = np.nan        
@@ -304,7 +407,7 @@ if __name__ == '__main__':
         dff_h = dff[((dff['humidity_reliable']==True) & (dff.index > WS_relocation))]
         dff_h, coverage_h = apply_coverage(dff_h,debug=False)
         
-        dff_p = dff[((dff['pressure_reliable']==True) & (dff.index > WS_relocation) & (dff['pressure']>750))]
+        dff_p = dff[((dff['pressure_reliable']==True) & (dff.index > WS_relocation) & (dff[name_pressure]>750))]
         dff_p, coverage_p = apply_coverage(dff_p,debug=False)
 
         dff_w = dff[((dff['wind_reliable']==True) & (dff.index > WS_relocation))]        
@@ -340,7 +443,7 @@ if __name__ == '__main__':
         df_s = dfn[mask].shift(8,freq='H')  # calculate spread from 8:00 to 8:00
         mjd_s = df_s['mjd'].resample('D').mean()
         hum_s = df_s['humidity'].resample('D').mean()    
-        diu_s = df_s['temperature'].resample('D').max().dropna()-df_s['temperature'].resample('D').min().dropna()    
+        diu_s = df_s[name_temperature].resample('D').max().dropna()-df_s[name_temperature].resample('D').min().dropna()    
 
         mask_daily = (df_s['mjd'].resample('D').count().dropna() > 95./100*expected_data_per_day)
         mjd_s = mjd_s[mask_daily]
@@ -394,7 +497,7 @@ if __name__ == '__main__':
         
         temp_lik_median = Likelihood_Wrapper(loglike,mu,name_temp,init_temp,bounds_temp,
                                            'Eq. (2), daily medians')
-        temp_lik_median.setargs_df(dfn,'temperature',mask,
+        temp_lik_median.setargs_df(dfn,name_temperature,mask,
                                    is_daily=True,is_median=True,day_coverage=85)
         temp_lik_median.like_minimize(method=method,tol=tol)
         residuals_temp = temp_lik_median.full_residuals().shift(12,freq='H')        
@@ -412,7 +515,7 @@ if __name__ == '__main__':
         
         press_lik_median4_offset = Likelihood_Wrapper(loglike4_2sets,mu2,name_mu2_sig2_offset,init_mu2_sig2_offset,bounds_mu2_sig2_offset,
                                                       'Daily medians, seas. spreads with offset')
-        press_lik_median4_offset.setargs_df2(dfn_p,'pressure',mask1,mask2,
+        press_lik_median4_offset.setargs_df2(dfn_p,name_pressure,mask1,mask2,
                                              is_daily=True,is_median=True,day_coverage=40)
         press_lik_median4_offset.like_minimize(method=method,tol=tol)
         residuals_press = press_lik_median4_offset.full_residuals(is_sigma2=True,is_offset=True).shift(12,freq='H')        
@@ -548,27 +651,27 @@ if __name__ == '__main__':
 
 
         # create new df entries containing time differences for between up to 5 rows behind
-        df_not['diff1']  = df_not.index.to_series().diff(1).fillna(pd.Timedelta(seconds=0))
-        df_not['diff5']  = df_not.index.to_series().diff(5).fillna(pd.Timedelta(seconds=0))
+        df_not['diff1']  = df_not.index.to_series().diff(tdiff_2min).fillna(pd.Timedelta(seconds=0))
+        df_not['diff5']  = df_not.index.to_series().diff(tdiff_10min).fillna(pd.Timedelta(seconds=0))
 
         mask_dup = (df_not['diff1']<pd.Timedelta(30,'s'))
         df_not = df_not[~mask_dup]
 
         # gradients defined as difference w.r.t previous row(s), divided by time difference
-        df_not['Tgradient1'] = df_not['TempInAirDegC'].diff(1) / df_not['diff1'].dt.total_seconds().div(60)
-        df_not['Tgradient5'] = df_not['TempInAirDegC'].diff(5) / df_not['diff5'].dt.total_seconds().div(60)
+        df_not['Tgradient1'] = df_not['TempInAirDegC'].diff(tdiff_2min) / df_not['diff1'].dt.total_seconds().div(60)
+        df_not['Tgradient5'] = df_not['TempInAirDegC'].diff(tdiff_10min) / df_not['diff5'].dt.total_seconds().div(60)
 
         df_not = df_not[df_not['Tgradient1']<3]   # remove these outliers
         
         # humidity gradients
 
         # gradients defined as difference w.r.t previous row(s), divided by time difference
-        df_not['Rgradient1']  = df_not['Humidity'].diff(1)  / df_not['diff1'].dt.total_seconds().div(60)
-        df_not['Rgradient5']  = df_not['Humidity'].diff(5)  / df_not['diff5'].dt.total_seconds().div(60)
+        df_not['Rgradient1']  = df_not['Humidity'].diff(tdiff_2min)  / df_not['diff1'].dt.total_seconds().div(60)
+        df_not['Rgradient5']  = df_not['Humidity'].diff(tdiff_10min)  / df_not['diff5'].dt.total_seconds().div(60)
 
         # gradients defined as difference w.r.t previous row(s), divided by time difference
-        df_not['Pgradient1']  = df_not['PressureHPA'].diff(1)  / df_not['diff1'].dt.total_seconds().div(60)
-        df_not['Pgradient5']  = df_not['PressureHPA'].diff(5)  / df_not['diff5'].dt.total_seconds().div(60)
+        df_not['Pgradient1']  = df_not['PressureHPA'].diff(tdiff_2min)  / df_not['diff1'].dt.total_seconds().div(60)
+        df_not['Pgradient5']  = df_not['PressureHPA'].diff(tdiff_10min)  / df_not['diff5'].dt.total_seconds().div(60)
 
         mask_stuck = ((df_not['Tgradient1'] == 0) & (df_not['Pgradient1'] == 0) & (df_not['Rgradient1'] == 0))
         df_not = df_not[~mask_stuck]
