@@ -27,52 +27,44 @@ from wind_helper import calc_ti, winddiraverage
 from coverage_helper import apply_coverage
 from config_helper import ConfigFile
 
-config_file = 'configs/paranal.yaml'
+#config_file = 'configs/paranal.yaml'
+config_file = 'configs/ctao-s.yaml'
 
 config = ConfigFile(config_file)
 data_spacing_minutes = config['data_spacing_minutes']
 expected_data_per_day = 60*24/data_spacing_minutes
 
-jsonfile = 'WS2003-23.json'
-#jsonfile = 'WS2023-24.json'
-#jsonfile = 'WS_detailed.json'
-#h5file_short = 'WS2003-23_short_withstate.h5'
-#h5file_short = 'WS2023-24_short.h5'
-#h5file_short = 'WS_detailed.h5'
-#h5file_short = 'CTAO-S_site_env_data_all.h5'
-h5file_short = 'Paranal_all.h5'
-#h5file_long = 'CTAO-S_site_env_data_all_long.h5'
-#h5file_long  = 'WS2003-23_long_with60min.h5'
-#h5file_long  = 'WS2023-24_long.h5'
-#h5file_long  = 'WS_detailed_long.h5'
-h5file_long = 'Paranal_all_long.h5'
-h5file_corr  = 'WS2003-23_corr.h5'
+h5file_short = config['h5file_short']
+h5file_long = config['h5file_long']
+h5file_corr  = config['h5file_corr']
+jsonfile = config['jsonfile']
+
 # from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
-naoi_file = 'norm.daily.nao.cdas.z500.19500101_current.csv'
-not_file = 'NOT_2003_2023.csv'
-h5file_not = 'NOT_2003_2023.h5'
+naoi_file = config['naoi_file']
+not_file = config['not_file']
+h5file_not = config['h5file_not']
 
 is_csv = False
 is_json  = False
 invertcuts = False
 # This option is needed once to create the long file,
-# Beware, it is very slow and may take several hours,
+# Beware, it is very slow and may2 take several hours,
 # because of the slow astropy sun coordinates calculator
 create_long = True
 create_corr = False
 create_not = False
 
-is_paranal = True
+is_paranal = (config_file == 'configs/paranal.yaml')
 freq_2min = False
 freq_1min = True
 data_sampling_interval_seconds = 60*data_spacing_minutes
 
-WS_start      = '2003-01-01 00:00:01'
-WS_relocation = '2004-03-01 00:00:01'
-new_WS        = '2007-03-20 00:00:01'
-new_model     = '2017-04-10 00:00:01'
-old_model     = '2023-01-16 00:00:01'
-NOT_end_of_data = '2019-12-31 23:59:59'
+WS_start      = config['WS_start']
+WS_relocation = config['WS_relocation']
+new_WS        = config['new_WS']
+new_model     = config['new_model']
+old_model     = config['old_model']
+NOT_end_of_data = config['NOT_end_of_data']
 #RH_drift_start  = '2020-01-01 00:00'
 #RH_drift_end    = '2023-01-16 14:00'
 
@@ -85,8 +77,8 @@ name_ws_average  = config['name_ws_average']
 name_wdir_current= config['name_wdir_current']
 name_wdir_average= config['name_wdir_average']
 
-name_ws_gust     = 'Wind Speed max at 30m [m/s]'
-#name_ws_average  = 'windSpeedAverage'
+if is_paranal:
+    name_ws_gust     = 'Wind Speed max at 30m [m/s]'
 name_wdir_average= 'windDirectionAverage'    
 
 longitude = config['longitude']
@@ -101,7 +93,7 @@ pd.set_option('max_seq_items',500)
 if __name__ == '__main__':
     SetUp()
 
-    if (is_csv):
+    if is_csv:
 
         all_files = glob.glob(os.path.join("Data/", "*.csv"))
         df = pd.concat((pd.read_csv(f,parse_dates=True,sep=',',skip_blank_lines=True,comment='#') for f in all_files), ignore_index=True)
@@ -127,7 +119,7 @@ if __name__ == '__main__':
         print ('Short file', h5file_short, ' successfully created')
         exit(0)
 
-    if (is_json):
+    if is_json:
         df = pd.read_json(jsonfile, convert_dates = True, orient = 'index')
         pd.to_datetime(df.index)
 
@@ -210,7 +202,11 @@ if __name__ == '__main__':
             dff['humidity_reliable'] = True
         if 'temperature_reliable' not in dff:                    
             dff['temperature_reliable'] = True
-        
+
+        # calculation of 10min. wind speed average for those data that have none
+        mask_w = (dff[name_ws_average]<=0)
+        df.loc[mask_w,name_ws_average] = df[mask_w].rolling('10T',center=True,min_periods=1)[name_ws_current].mean()
+            
         # convert JD to MJD, and subtract then 55000,
         # in order to maintain sufficient precision, if the variable
         # is stored as float. 

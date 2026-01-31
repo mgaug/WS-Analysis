@@ -34,8 +34,8 @@ from diurnal_helper import *
 from config_helper import ConfigFile
 
 #config_file = 'configs/magic.yaml'
-config_file = 'configs/paranal.yaml'
-#config_file = 'configs/ctao-s.yaml'
+#config_file = 'configs/paranal.yaml'
+config_file = 'configs/ctao-s.yaml'
 
 config = ConfigFile(config_file)
 #config.print()
@@ -49,7 +49,7 @@ plotdir  = config['plotdir']
 h5file_long = config['h5file_long']
 tits = config['tits']
 naoi_file = config['naoi_file']
-not_file = config['not_file']
+not_file = config['h5file_not']
 ctaos_file = config['ctaos_file']
 
 print('plotdir: ',plotdir, ' tits: ',tits)
@@ -2189,20 +2189,28 @@ def plot_pressure() -> None:
 def plot_wind() -> None:
 
     is_offset = True
-    tits = '_2024'
-    tits = '_CTAO-S'
-    tits = '_Paranal'
-    is_magic = False
-    correlate_ctaos = True
-    
-    print ('wind binning: ', wind_binning)
+    #tits = '_2024'
+    #tits = '_CTAO-S'
+    #tits = '_Paranal'
+    tits = config['tits']
+                  
+    is_magic = (config_file == 'configs/magic.yaml')
+    correlate_ctaos = (config_file == 'configs/paranal.yaml')
+
+    if (config_file == 'configs/ctao-s.yaml'):
+        dff.loc[((dff[name_ws_average]<=0.) | (dff[name_ws_current]<=0.)),'wind_reliable'] = False
     
     dfff = dff[(dff['wind_reliable']==True)]
 
-    print ('wind maxima: ')
     pd.set_option('display.max_columns', 100)    
-    print (dfff[dfff[name_ws_gust]>150].head(n=100))
-    print ('end wind maxima: ')
+    #print ('wind average minima: ')    
+    #print (dfff[dfff[name_ws_average]<0.5].tail(n=100))
+    
+    #print ('wind binning: ', wind_binning)
+    
+    #print ('wind maxima: ')
+    #print (dfff[dfff[name_ws_gust]>150].head(n=100))
+    #print ('end wind maxima: ')
     
     #mask_ti = ((dfff[name_ws_current] > 0.) & (dfff['windTI']>1) & (dfff[name_ws_gust] > 0))
     #print (dfff[mask_ti].head(n=100))    
@@ -2210,8 +2218,70 @@ def plot_wind() -> None:
     #pd.set_option('display.max_columns', 30)    
     #print('HERE', dfff[dfff.index > '2005-11-01'].head(n=20))
 
+    #Roses de vent
+    dfn = dfff[dfff['coverage'] > coverage_cut]
+    alisio_limit = 70
+    pw_ti = 2
+    pw_full = 5
+    pw_strong = 0.7
+    pw_ti_strong = 2
+
+    plt.figure()
+    mask_ti = ((dfn[name_ws_current] > 0.) & (dfn.index > WS_relocation))
+    plot_windrose(dfn[mask_ti],'windTI',name_wdir_current,
+                  'Turbulence Index, full sample',pw=pw_ti,leg_tit='TI',form='.3f',min_scale=0.)
+    plt.savefig('{:s}/windrose_TI_normal{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+    
+    plt.figure()
+    mask_ws = ((dfn[name_ws_current] > 0.) & (dfn.index > WS_relocation))    
+    plot_windrose(dfn[mask_ws],name_ws_current,name_wdir_current,
+                  'Instantaneous wind speed, full sample',pw=pw_full)
+    plt.savefig('{:s}/windrose_normal{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+
+    plt.clf()
+    df_fort = dfn[dfn[name_ws_current] > alisio_limit]
+    plot_windrose(df_fort,name_ws_current,name_wdir_current,
+                  'Instantaneous wind speed > {:d} km/h'.format(alisio_limit), pw=pw_strong)
+    plt.savefig('{:s}/windrose_extrem{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+
+    plt.clf()
+    plot_windrose(df_fort,'windTI',name_wdir_current,
+                  'Instantaneous wind speed > {:d} km/h'.format(alisio_limit), pw=pw_ti_strong,
+                  leg_tit='TI',form='.3f',min_scale=0.1)
+    plt.savefig('{:s}/windrose_TI_extrem{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    dfn = dfff[((dfff['coverage'] > coverage_cut) & (dfff['sun_alt'] < -12.) & (dfff[name_ws_current] > 0.))]
+
+    plt.figure()
+    mask_ti = ((dfn[name_ws_current] > 0.)  & (dfn.index > WS_relocation))
+    plot_windrose(dfn[mask_ti],'windTI',name_wdir_current,
+                  'Turbulence Index, full sample',pw=pw_ti,leg_tit='TI',form='.3f',min_scale=0.)
+    plt.savefig('{:s}/windrose_TI_night{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+    
+    plt.clf()
+    plot_windrose(dfn,name_ws_current,name_wdir_current,
+                  'Instantaneous wind speed, night time only',pw=pw_full)
+    plt.savefig('{:s}/windrose_normal_night{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    plt.clf()
+    ws_min = 70
+    df_fort = dfn[dfn[name_ws_current] > ws_min]
+    plot_windrose(df_fort,name_ws_current,name_wdir_current,
+                  'Instantaneous wind speed > {:d} km/h, night time only'.format(ws_min),pw=pw_strong)
+    plt.savefig('{:s}/windrose_extrem_night{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    
     plt.figure(figsize = (10,5), constrained_layout = True)
-    v10, v50, v475 = plot_windspeed(dfff,name_ws_average,name_ws_gust, unit='km/h',wbins=wind_binning, sampling_freq_min=1./data_spacing_minutes)
+    v10, v50, v475, v10_av, v50_av, v475_av = plot_windspeed(dfff,name_ws_average,name_ws_gust, unit='km/h',wbins=wind_binning, sampling_freq_min=1./data_spacing_minutes)
     plt.ylim([1e-4,5e4])
     plt.xlim([-0.5,v475*1.05])
     plt.vlines(v10,1e-4,2e-2,colors='darkturquoise')
@@ -2223,8 +2293,18 @@ def plot_wind() -> None:
     plt.text(v10,4e-2,'1/10y',fontsize=15,color='darkturquoise')
     plt.text(v50,6e-3,'1/50y',fontsize=15,color='cadetblue')
     plt.text(v475,6e-4,'1/475y',fontsize=15,color='darkslategrey')
+
+    plt.vlines(v10_av,1e-4,2e-2,colors='orange')
+    plt.vlines(v50_av,1e-4,5e-3,colors='goldenrod')
+    plt.vlines(v475_av,1e-4,5e-4,colors='darkgoldenrod')
+    plt.hlines(2e-2,v10_av,v10_av+10,colors='orange')
+    plt.hlines(5e-3,v50_av,v50_av+10,colors='goldenrod')
+    plt.hlines(5e-4,v475_av,v475_av+10,colors='darkgoldenrod')
+    plt.text(v10_av,4e-2,'1/10y',fontsize=15,color='orange')
+    plt.text(v50_av,6e-3,'1/50y',fontsize=15,color='goldenrod')
+    plt.text(v475_av,6e-4,'1/475y',fontsize=15,color='darkgoldenrod')
     plt.legend(loc='best', fontsize=18)
-    plt.savefig('Histogram_windGust{:s}.pdf'.format(tits), bbox_inches='tight')
+    plt.savefig('{:s}/Histogram_windGust{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
     plt.show()
 
     if correlate_ctaos:
@@ -2236,13 +2316,22 @@ def plot_wind() -> None:
         #not_correlate(df_ctaos[name_ws_gust],dfff.loc[mask_ctaos,name_ws_gust],color='r')
         #plt.savefig('WindGust_corr_CTAO-S{:s}.pdf'.format(tits),bbox_inches='tight')
         
+        
         plt.figure(figsize = (8,5), constrained_layout = True)
         #not_profile(df_not[ws_name_gust].resample('D').median(),dff[name_humidity].resample('D').median(),nbins=25)
-        not_profile(dfff.loc[mask_ctaos,name_ws_gust],df_ctaos[name_ws_gust],nbins=18)    
+        not_profile(dfff.loc[mask_ctaos,name_ws_gust],df_ctaos.loc[(df_ctaos[name_ws_gust] > 0),name_ws_gust],nbins=18)    
         plt.ylabel('Wind gust CTAO-S (km/h)')
         plt.xlabel('Wind gust Paranal (km/h)')
         plt.plot([0.,70.], [0.,70.], 'r-', lw=2)
         plt.savefig('{:s}/WindGust_corrprofile_CTAO-S{:s}.pdf'.format(plotdir,tits),bbox_inches='tight')
+        
+        plt.figure(figsize = (8,5), constrained_layout = True)
+        #not_profile(df_not[ws_name_gust].resample('D').median(),dff[name_humidity].resample('D').median(),nbins=25)
+        not_profile(dfff.loc[mask_ctaos,name_ws_average],df_ctaos.loc[(df_ctaos[name_ws_average] > 0),name_ws_average],nbins=18)    
+        plt.ylabel('Windspeed average CTAO-S (km/h)')
+        plt.xlabel('Windspeed average Paranal (km/h)')
+        plt.plot([0.,60.], [0.,60.], 'r-', lw=2)
+        plt.savefig('{:s}/WindAverage_corrprofile_CTAO-S{:s}.pdf'.format(plotdir,tits),bbox_inches='tight')
         
         plt.figure(figsize = (10,5), constrained_layout = True)
         not_profile_time(df_ctaos,dfff[mask_ctaos],name_ws_gust,name_ws_gust,expected_data_per_day,ynums)
@@ -2271,6 +2360,52 @@ def plot_wind() -> None:
     plt.savefig('{:s}/WindSpeed_mensual{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
     plt.show()
 
+    #Distribucions del vent
+    plt.figure(figsize = (10,5), constrained_layout = True)
+    plot_hist(dfff, name_ws_current, 1.,'Instantaneous wind speed (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', coverage_cut=coverage_cut)
+    #plt.plot(x,y, color= 'steelblue')
+    plt.savefig('{:s}/Hist_windSpeed{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    plt.clf()
+    plot_hist(dfff, name_ws_current, 1.,'Instantaneous wind speed (km/h)','Probability / (km/h)', ' km/h', xoff=0.,loc='right',is_night=True, coverage_cut=coverage_cut)
+    #plt.plot(x,y, color= 'steelblue')
+    plt.savefig('{:s}/Hist_windSpeed_night{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    plt.clf()
+    plt.hist(dfff[name_ws_current], bins = 100, log = 'True')
+    plt.xlabel('Wind Speed (km/h)')
+    plt.savefig('{:s}/Histogram_windSpeed{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    plt.clf()
+    plot_hist(dfff, name_ws_average, 1.,'Wind speed average (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', coverage_cut=coverage_cut)
+    plt.savefig('{:s}/Hist_windAverage{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    plt.clf()
+    plot_hist(dfff, name_ws_average, 1.,'Wind speed average (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', coverage_cut=coverage_cut,log=True)
+    plt.savefig('{:s}/Hist_windAverage_log{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()    
+    
+    plt.clf()
+    plot_hist(dfff, name_ws_average, 1.,'Wind speed average (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', is_night=True, coverage_cut=coverage_cut)
+    plt.savefig('{:s}/Hist_windAverage_night{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+
+    plt.clf()
+    plot_hist(dfff, name_ws_average, 1.,'Wind speed average (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', is_night=True, coverage_cut=coverage_cut, log=True)
+    plt.savefig('{:s}/Hist_windAverage_night_log{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')    
+    plt.show()
+    
+    plt.clf()
+    plt.yscale('linear')    
+    plt.plot(dfff.index, dfff[name_ws_average])
+    plt.xlabel('Wind Speed Average (km/h)')
+    plt.savefig('{:s}/Histogram_windAverage_vsTime{:s}.png'.format(plotdir,tits), bbox_inches='tight')
+    plt.show()
+    
     plt.figure(figsize = (10,5), constrained_layout = True)
     mask_ti = ((dfff[name_ws_current] > 0.) & (dfff.index > WS_relocation))
     ti_fit_idx = 14
@@ -2330,7 +2465,7 @@ def plot_wind() -> None:
     plt.figure()    
     plot_mensual(dfff[mask_ti],'windTI',ytit='Turbulence Index') #, name_ws_current)
     #plt.xlabel('Month')
-v    #plt.ylabel('Wind Speed (km/h)')
+    #plt.ylabel('Wind Speed (km/h)')
     plt.savefig('{:s}/WindTI_mensual{:s}.pdf'.format(plotdir,tits), bbox_inches='tight')
     plt.show()
     
@@ -2480,36 +2615,6 @@ v    #plt.ylabel('Wind Speed (km/h)')
     plt.savefig('WindSpeed_b_profiled{:s}.pdf'.format(tits), bbox_inches='tight')
     tits = tits.replace('_offset','')    
     
-    #Distribucions del vent
-    plt.clf()
-    plot_hist(dfff, name_ws_current, 1.,'Instantaneous wind speed (km/h)','Probability / (km/h)', ' km/h', xoff=0., loc='right', coverage_cut=coverage_cut)
-    #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_windSpeed{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-    plt.clf()
-    plot_hist(dfff, name_ws_current, 1.,'Instantaneous wind speed (km/h)','Probability / (km/h)', ' km/h', xoff=0.,loc='right',is_night=True, coverage_cut=coverage_cut)
-    #plt.plot(x,y, color= 'steelblue')
-    plt.savefig('Hist_windSpeed_night{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-    plt.clf()
-    plt.hist(dfff[name_ws_current], bins = 100, log = 'True')
-    plt.xlabel('Wind Speed (km/h)')
-    plt.savefig('Histogram_windSpeed{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-    plt.clf()
-    plt.hist(dfff[name_ws_average], bins = 100)
-    plt.xlabel('Wind Speed Average (km/h)')
-    plt.savefig('Histogram_windAverage{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-        
-    plt.clf()
-    plt.plot(dfff.index, dfff[name_ws_average])
-    plt.xlabel('Wind Speed Average (km/h)')
-    plt.savefig('Histogram_windAverage_vsTime{:s}.png'.format(tits), bbox_inches='tight')
-    plt.show()
         
     plt.figure(figsize = (10,5), constrained_layout = True)
     plot_historic_wind(dfff, coverage, ynums, min_coverage=30) #, name_ws_current)
@@ -2526,67 +2631,6 @@ v    #plt.ylabel('Wind Speed (km/h)')
     plt.savefig('WindSpeed_sencer{:s}.pdf'.format(tits), bbox_inches='tight')
     plt.show()
     tits = tits.replace('_offset','')    
-
-    #Roses de vent
-    dfn = dfff[dfff['coverage'] > coverage_cut]
-    alisio_limit = 70
-    pw_ti = 2
-    pw_full = 5
-    pw_strong = 0.7
-    pw_ti_strong = 2
-
-    plt.figure()
-    mask_ti = ((dfn[name_ws_current] > 0.) & (dfn.index > WS_relocation))
-    plot_windrose(dfn[mask_ti],'windTI',name_wdir_current,
-                  'Turbulence Index, full sample',pw=pw_ti,leg_tit='TI',form='.3f',min_scale=0.)
-    plt.savefig('windrose_TI_normal{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-    
-    plt.figure()
-    mask_ws = ((dfn[name_ws_current] > 0.) & (dfn.index > WS_relocation))    
-    plot_windrose(dfn[mask_ws],name_ws_current,name_wdir_current,
-                  'Instantaneous wind speed, full sample',pw=pw_full)
-    plt.savefig('windrose_normal{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-
-    plt.clf()
-    df_fort = dfn[dfn[name_ws_current] > alisio_limit]
-    plot_windrose(df_fort,name_ws_current,name_wdir_current,
-                  'Instantaneous wind speed > {:d} km/h'.format(alisio_limit), pw=pw_strong)
-    plt.savefig('windrose_extrem{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-
-    plt.clf()
-    plot_windrose(df_fort,'windTI',name_wdir_current,
-                  'Instantaneous wind speed > {:d} km/h'.format(alisio_limit), pw=pw_ti_strong,
-                  leg_tit='TI',form='.3f',min_scale=0.1)
-    plt.savefig('windrose_TI_extrem{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-    dfn = dfff[((dfff['coverage'] > coverage_cut) & (dfff['sun_alt'] < -12.) & (dfff[name_ws_current] > 0.))]
-
-    plt.figure()
-    mask_ti = ((dfn[name_ws_current] > 0.)  & (dfn.index > WS_relocation))
-    plot_windrose(dfn[mask_ti],'windTI',name_wdir_current,
-                  'Turbulence Index, full sample',pw=pw_ti,leg_tit='TI',form='.3f',min_scale=0.)
-    plt.savefig('windrose_TI_night{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-    
-    plt.clf()
-    plot_windrose(dfn,name_ws_current,name_wdir_current,
-                  'Instantaneous wind speed, night time only',pw=pw_full)
-    plt.savefig('windrose_normal_night{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
-
-    plt.clf()
-    ws_min = 70
-    df_fort = dfn[dfn[name_ws_current] > ws_min]
-    plot_windrose(df_fort,name_ws_current,name_wdir_current,
-                  'Instantaneous wind speed > {:d} km/h, night time only'.format(ws_min),pw=pw_strong)
-    plt.savefig('windrose_extrem_night{:s}.pdf'.format(tits), bbox_inches='tight')
-    plt.show()
 
 
 def plot_huracans() -> None:
@@ -3537,8 +3581,8 @@ if __name__ == '__main__':
     #plot_DTR()
     #plot_snow()
     #plot_rainy_periods()
-    plot_humidity()
+    #plot_humidity()
     #plot_pressure()    
-    #plot_wind()
+    plot_wind()
     #plot_huracans()
 

@@ -1018,7 +1018,7 @@ def plot_mensual_rain_sun(df,arg,hum_threshold=90, lengthcut=3, direction='<', n
     plt.xlabel('Sun altitude (º)',fontsize=22)
     plt.legend(loc='best', fontsize=10)
     
-def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_night=False, coverage_cut=50, mult=1.):
+def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_night=False, coverage_cut=50, mult=1., log=False):
 
     #res = df['months'].resample('M').mean().mask(coverage < coverage_cut)   
     mdays = [0., 31., 28.25, 31., 30., 31., 30., 31., 31., 30., 31., 30., 31.]
@@ -1099,11 +1099,11 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
         r'{0:<13} $\bf{{{1:>5.1f}{2:}}}$'.format("Std. dev.:",std, sunit) + '\n'+ \
         r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("Abs. maximum:", dfn[arg].max()*mult, sunit) + '\n'+ \
         r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("Abs. minimum:", dfn[arg].min()*mult, sunit) + '\n'+ \
-        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("5%  quartile:", quantiles[0], sunit) + '\n' + \
-        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("25% quartile:", quantiles[1], sunit) + '\n'+ \
+        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("5%  quantile:", quantiles[0], sunit) + '\n' + \
+        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("25% quantile:", quantiles[1], sunit) + '\n'+ \
         r'{0:<13} $\bf{{{1:>5.1f}{2:}}}$'.format("Median:", quantiles[2], sunit) + '\n'+ \
-        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("75% quartile:", quantiles[3], sunit) + '\n'+ \
-        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("95% quartile:", quantiles[4], sunit) 
+        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("75% quantile:", quantiles[3], sunit) + '\n'+ \
+        r'{0:<13} $\tt{{{1:>5.1f}{2:}}}$'.format("95% quantile:", quantiles[4], sunit) 
     #'{0:<10} {1:.1f} {2:4}\n'.format("Bin size: ", resolution, sunit) + \
 
     if (arg in "gradient"):
@@ -1112,11 +1112,11 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
             r'{0:<13} $\bf{{{1:>5.2f}{2:}}}$'.format("Std. dev.:",std, sunit) + '\n'+ \
             r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("Abs. maximum:", dfn[arg].max()*mult, sunit) + '\n'+ \
             r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("Abs. minimum:", dfn[arg].min()*mult, sunit) + '\n'+ \
-            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("5%  quartile:", quantiles[0], sunit) + '\n' + \
-            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("25% quartile:", quantiles[1], sunit) + '\n'+ \
+            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("5%  quantile:", quantiles[0], sunit) + '\n' + \
+            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("25% quantile:", quantiles[1], sunit) + '\n'+ \
             r'{0:<13} $\bf{{{1:>5.2f}{2:}}}$'.format("Median:", quantiles[2], sunit) + '\n'+ \
-            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("75% quartile:", quantiles[3], sunit) + '\n'+ \
-            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("95% quartile:", quantiles[4], sunit) 
+            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("75% quantile:", quantiles[3], sunit) + '\n'+ \
+            r'{0:<13} $\tt{{{1:>5.2f}{2:}}}$'.format("95% quantile:", quantiles[4], sunit) 
 
 
     #return binning.mid, freq_tot.values
@@ -1128,6 +1128,8 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
     if arg == 'humidity':
         values[0] = values[0]/2   # renormalize for bigger humidity bin width in first bin
     plt.step(binning.mid,values, where='mid', lw=3, color='steelblue')
+    if log:
+        plt.yscale('log')
     plt.xlabel(xtit, fontsize=30)
     plt.ylabel(ytit, fontsize=30)
     plt.title(tit, fontsize=20, loc='right')
@@ -1150,11 +1152,19 @@ def plot_hist(df, arg, resolution, xtit, ytit, sunit, xoff=0.1, loc='left', is_n
     #pd.Series(freq_tot_fine.values, index=binning_fine.mid).cumsum().plot(color='k')
     ax2.plot(binning_fine.mid, freq_tot_fine.cumsum().values, '-', lw=3, color='k')
     ax2.set_ylabel('cumulative frequency', fontsize=30)
-    ax2.set_ylim(-0.005,1.005)
-    ax2.yaxis.set_ticks(np.arange(0., 1.1, 0.1))
-    ax2.yaxis.set_tick_params(labelsize=25)
+    if log:
+        ax2.set_ylim(0.2,1.05)
+        ax2.set_yscale('log')
+        ax2.yaxis.set_tick_params(labelsize=21)        
+    else:
+        ax2.set_ylim(-0.005,1.005)        
+        ax2.yaxis.set_ticks(np.arange(0., 1.1, 0.1))
+        ax2.yaxis.set_tick_params(labelsize=25)
     ax2.grid(axis='y', color='k', linestyle='--', linewidth=0.5)
 
+    if log:
+        return
+    
     print ('TABLE')
     print ( x.get_string(header=False, border=False))
 
@@ -1285,7 +1295,8 @@ def plot_profile(df_x, df_y, nbins=50, minimum=None, maximum=None, is_shifted=Fa
     print ('DF before mask: ', df.head(n=20))    
     mask = (df['x'].notnull() & df['y'].notnull())
     df = df[mask]
-
+    mask = (np.isfinite(df['x']) & np.isfinite(df['y']))
+    df = df[mask]
     print ('DF after mask: ', df.head(n=20))
     
     # multiplication needed because later np.digitize has no option 'rightandleft'
@@ -1317,11 +1328,13 @@ def plot_profile(df_x, df_y, nbins=50, minimum=None, maximum=None, is_shifted=Fa
     # Now have to (manually) remove empty bins from bin_centers
     binned = df.groupby(['bin'])['bin'].count()
     print ('binned: ', binned)
-    print ('bin_centers before:', bin_centers)
-    print ('bin_centers after', bin_centers[binned.index-1])    
-    bin_centers = bin_centers[binned.index-1]    
+    binidx = binned.index
+    print ('index: ', binidx)
 
     binned = df.groupby('bin')
+    print ('bin_centers before:', bin_centers, binidx-1)
+    print ('bin_centers after', bin_centers[binidx-1])    
+    bin_centers = bin_centers[binidx-1]    
     #print ('median:',binned['y'].count())    
     #print ('mad:',binned['y'].agg(lambda x: mad(x)))
 

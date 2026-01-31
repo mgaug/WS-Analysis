@@ -659,12 +659,28 @@ def plot_windspeed(df, arg_av, arg_gust, wbins, unit='(km/h)',sampling_freq_min=
             print ('Found average wind speeds for 10, 50, 475 y:', v10_av, v50_av, v475_av)
             print ('Found average wind speeds at:', exp_decay(v10,c_av[0],c_av[1]),
                    exp_decay(v50,c_av[0],c_av[1]),exp_decay(v475,c_av[0],c_av[1]))
-    
+
+    else:
+
+        # Chi2 of overall fit
+        s_sq = weibull_av.chi2_from_hists(bin_centers,values_av,values_av_err,mult=conv_per_min_per_year)
+
+        # Weibull integrated yields:  
+        v10_av, v10_av_l, v10_av_h = weibull_av.find_recurrence_with_uncertainty(10.,mult=conv_per_min_per_year)
+        v50_av, v50_av_l, v50_av_h = weibull_av.find_recurrence_with_uncertainty(50.,mult=conv_per_min_per_year)
+        v475_av, v475_av_l, v475_av_h = weibull_av.find_recurrence_with_uncertainty(475.,mult=conv_per_min_per_year)
+        
+        print ('Found wind speed average with c,k:', weibull_av.c_est, weibull_av.k_est)
+        print ('Found wind speed average for 10, 50, 475 y:', v10_av, v50_av, v475_av)
+        print ('Found lower limits for 10, 50, 475 y:', v10_av_l, v50_av_l, v475_av_l)
+        print ('Found upper limits for 10, 50, 475 y:', v10_av_h, v50_av_h, v475_av_h)
+
+            
     plt.yscale('log')
     plt.xlabel('Wind Speed (%s)' % (unit))
     plt.ylabel('Occurrence / year / (km/h)')
 
-    return v10_gust, v50_gust, v475_gust
+    return v10_gust, v50_gust, v475_gust, v10_av, v50_av, v475_av
 
 def calc_ti(x):
 
