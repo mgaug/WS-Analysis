@@ -1,4 +1,5 @@
 plotdir: Plots-CTAO-S
+h5file_short: CTAO-S_site_env_data_all.h5
 h5file_long: CTAO-S_site_env_data_all_long.h5
 data_spacing_minutes: 0.16666667 # 1/6
 

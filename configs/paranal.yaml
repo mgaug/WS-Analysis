@@ -1,4 +1,5 @@
 plotdir: Plots-Paranal
+h5file_short: Paranal_all.h5
 h5file_long: Paranal_all_long.h5
 data_spacing_minutes: 1
 

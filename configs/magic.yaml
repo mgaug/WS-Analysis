@@ -1,7 +1,19 @@
 plotdir: Plots-MAGIC
+
+jsonfile: WS2003-23.json
+#jsonfile: WS2023-24.json
+#jsonfile: WS_detailed.json
+
+#h5file_short: WS_detailed.h5
+#h5file_short: WS2003-23_short_withstate.h5
+h5file_short: WS2023-24_short.h5
 h5file_long: WS2003-24_long.h5
-#h5file_long: 'WS2003-23_long_with60min.h5'
-#h5file_long: 'WS2003-24_long.h5'
+#h5file_long: WS2003-23_long_with60min.h5
+#h5file_long: WS2003-24_long.h5
+#h5file_long: WS_detailed_long.h5
+
+h5file_corr: WS2003-23_corr.h5
+
 data_spacing_minutes: 2
 
 is_20to22: True
@@ -23,7 +35,8 @@ name_wdir_average: windDirectionAverage
 # from: https://ftp.cpc.ncep.noaa.gov/cwlinks/norm.daily.nao.cdas.z500.19500101_current.csv
 is_naoi: true
 naoi_file: norm.daily.nao.cdas.z500.19500101_current.csv
-not_file: NOT_2003_2023.h5
+not_file: NOT_2003_2023.csv
+h5file_not: NOT_2003_2023.h5
 
 coverage_cut: 50
 coverage_cut_for_daily_samples: 10
